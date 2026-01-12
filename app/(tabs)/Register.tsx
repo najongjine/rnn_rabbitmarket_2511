@@ -14,6 +14,7 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [repassword, setRePassword] = useState("");
+
   return (
     <View>
       <ScrollView>
@@ -25,17 +26,27 @@ export default function Register() {
           <TextInput
             value={username}
             onChangeText={(e) => {
-              setUsername(username);
+              setUsername(e);
             }}
           />
         </View>
         <View>
           <Text>password:</Text>
-          <TextInput />
+          <TextInput
+            value={password}
+            onChangeText={(e) => {
+              setPassword(e);
+            }}
+          />
         </View>
         <View>
           <Text>password 재입력:</Text>
-          <TextInput />
+          <TextInput
+            value={repassword}
+            onChangeText={(e) => {
+              setRePassword(e);
+            }}
+          />
         </View>
       </ScrollView>
     </View>
