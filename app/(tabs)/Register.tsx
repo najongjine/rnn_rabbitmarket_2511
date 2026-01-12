@@ -2,7 +2,6 @@ import * as Location from "expo-location";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-  Alert,
   Button,
   Dimensions,
   ScrollView,
@@ -100,13 +99,13 @@ export default function Register() {
     // 1. 유효성 검사
     if (!username || !password || !nickname) {
       setErrorMsg("아이디, 비밀번호, 닉네임은 필수입니다.");
-      Alert.alert("알림", "아이디, 비밀번호, 닉네임은 필수입니다.");
+      alert("아이디, 비밀번호, 닉네임은 필수입니다.");
       return;
     }
 
     if (password !== repassword) {
       setErrorMsg("비밀번호가 일치하지 않습니다.");
-      Alert.alert("알림", "비밀번호가 일치하지 않습니다.");
+      alert("비밀번호가 일치하지 않습니다.");
       return;
     }
 
@@ -145,16 +144,15 @@ export default function Register() {
 
       if (response.ok && result?.success) {
         setErrorMsg("");
-        Alert.alert("성공", "회원가입이 완료되었습니다.", [
-          { text: "확인", onPress: () => router.replace("/") }, // 로그인 화면 등으로 이동
-        ]);
+        alert("회원가입이 완료되었습니다.");
+        router.replace("/");
       } else {
         setErrorMsg(result?.msg || "회원가입에 실패했습니다.");
-        Alert.alert("실패", result?.msg || "회원가입에 실패했습니다.");
+        alert(result?.msg || "회원가입에 실패했습니다.");
       }
     } catch (error: any) {
       console.error(error);
-      Alert.alert("오류", `서버 통신 중 오류 발생: ${error?.message}`);
+      alert(`서버 통신 중 오류 발생: ${error?.message}`);
     }
   }
 
@@ -203,7 +201,7 @@ export default function Register() {
         <View>
           <Text>닉네임:</Text>
           <TextInput
-            value={addr}
+            value={nickname}
             onChangeText={(e) => {
               setNickname(e);
             }}
@@ -212,7 +210,7 @@ export default function Register() {
         <View>
           <Text>전화번호:</Text>
           <TextInput
-            value={addr}
+            value={phonenum}
             onChangeText={(e) => {
               setPhonenum(e);
             }}
