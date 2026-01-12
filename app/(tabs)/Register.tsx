@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { KakaoAddressResponse } from "../types/types";
 
 const { width } = Dimensions.get("window");
 
@@ -18,6 +19,7 @@ export default function Register() {
   const [repassword, setRePassword] = useState("");
 
   const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
+  const kakaoRestapiKey = process.env.EXPO_PUBLIC_KAKAO_RESTAPI_KEY;
   const queryString = useLocalSearchParams();
 
   const [location, setLocation] = useState<Location.LocationObject | null>(
@@ -36,7 +38,39 @@ export default function Register() {
     getAddr(location);
   }
 
-  async function getAddr(_location: Location.LocationObject) {}
+  async function getAddr(_location: Location.LocationObject) {
+    // 3. 카카오 API 호출 URL 생성
+    const params = new URLSearchParams({
+      x: String(_location?.coords?.longitude), // longitude
+      y: String(_location?.coords?.latitude), // lat
+    });
+
+    const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?${params.toString()}`;
+
+    // 4. fetch로 API 요청
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        // 주의: 'KakaoAK ' 뒤에 공백이 한 칸 있어야 합니다.
+        Authorization: `KakaoAK ${process?.env?.KAKAO_RESTAPI_KEY}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Kakao API Error: ${response.status} ${response.statusText}`
+      );
+    }
+
+    // 5. 응답 데이터를 타입에 맞춰 파싱
+    const data = (await response.json()) as KakaoAddressResponse;
+    let addr = data.documents[0].road_address?.address_name || "";
+    if (!addr) {
+      addr = data.documents[0].address?.address_name || "";
+    }
+    console.log(`addr: `, addr);
+  }
 
   useFocusEffect(
     useCallback(() => {
