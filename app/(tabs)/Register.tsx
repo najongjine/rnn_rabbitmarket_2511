@@ -17,6 +17,7 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [repassword, setRePassword] = useState("");
+  const [addr, setAddr] = useState("");
 
   const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
   const kakaoRestapiKey = process.env.EXPO_PUBLIC_KAKAO_RESTAPI_KEY;
@@ -39,37 +40,48 @@ export default function Register() {
   }
 
   async function getAddr(_location: Location.LocationObject) {
-    // 3. 카카오 API 호출 URL 생성
-    const params = new URLSearchParams({
-      x: String(_location?.coords?.longitude), // longitude
-      y: String(_location?.coords?.latitude), // lat
-    });
+    try {
+      // 3. 카카오 API 호출 URL 생성
+      const params = new URLSearchParams({
+        x: String(_location?.coords?.longitude), // longitude
+        y: String(_location?.coords?.latitude), // lat
+      });
 
-    const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?${params.toString()}`;
+      const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?${params.toString()}`;
 
-    // 4. fetch로 API 요청
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        // 주의: 'KakaoAK ' 뒤에 공백이 한 칸 있어야 합니다.
-        Authorization: `KakaoAK ${process?.env?.KAKAO_RESTAPI_KEY}`,
-        "Content-Type": "application/json",
-      },
-    });
+      // 4. fetch로 API 요청
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          // 주의: 'KakaoAK ' 뒤에 공백이 한 칸 있어야 합니다.
+          Authorization: `KakaoAK ${kakaoRestapiKey}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(
-        `Kakao API Error: ${response.status} ${response.statusText}`
-      );
+      if (!response.ok) {
+        throw new Error(
+          `Kakao API Error: ${response.status} ${response.statusText}`
+        );
+      }
+
+      // 5. 응답 데이터를 타입에 맞춰 파싱
+      const data = (await response.json()) as KakaoAddressResponse;
+      let addr = data.documents[0].road_address?.address_name || "";
+      if (!addr) {
+        addr = data.documents[0].address?.address_name || "";
+      }
+      console.log(`addr: `, addr);
+      if (!addr) {
+        alert(`자동 주소가져오기 실패. 수동으로 주소 입력해 주세요`);
+        setErrorMsg(`자동 주소가져오기 실패. 수동으로 주소 입력해 주세요`);
+        return;
+      }
+      setAddr(addr);
+    } catch (error: any) {
+      alert(`!error. ${error?.message}`);
+      setErrorMsg(`!error. ${error?.message}`);
     }
-
-    // 5. 응답 데이터를 타입에 맞춰 파싱
-    const data = (await response.json()) as KakaoAddressResponse;
-    let addr = data.documents[0].road_address?.address_name || "";
-    if (!addr) {
-      addr = data.documents[0].address?.address_name || "";
-    }
-    console.log(`addr: `, addr);
   }
 
   useFocusEffect(
