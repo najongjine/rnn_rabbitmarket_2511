@@ -1,3 +1,5 @@
+import * as Location from "expo-location";
+import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   Dimensions,
@@ -14,6 +16,14 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [repassword, setRePassword] = useState("");
+
+  const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
+  const queryString = useLocalSearchParams();
+
+  const [location, setLocation] = useState<Location.LocationObject | null>(
+    null
+  );
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   return (
     <View>
