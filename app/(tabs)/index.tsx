@@ -15,10 +15,11 @@ const { width } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const router = useRouter();
-  // 2. 필요한 데이터만 쏙쏙 골라서 가져오기 (Selector 패턴)
+  // 유저정보 관련 기능
   const userInfo = useAuthStore((state) => state.userInfo);
   const token = useAuthStore((state) => state.token);
   const logout = useAuthStore((state) => state.logout);
+  // 유저정보 관련 기능 END
   const [categories, setCategories] = useState<string[]>([
     "이비인후과",
     "내과",
