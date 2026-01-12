@@ -9,16 +9,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useAuthStore } from "../store/useAuthStore";
+import { useAuth } from "../context/AuthContext";
 
 const { width } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const router = useRouter();
   // 유저정보 관련 기능
-  const userInfo = useAuthStore((state) => state.userInfo);
-  const token = useAuthStore((state) => state.token);
-  const logout = useAuthStore((state) => state.logout);
+  const { userInfo, token, signOut } = useAuth();
   // 유저정보 관련 기능 END
   const [categories, setCategories] = useState<string[]>([
     "이비인후과",

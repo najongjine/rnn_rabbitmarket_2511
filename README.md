@@ -1,4 +1,5 @@
-npm install zustand @react-native-async-storage/async-storage
+npm uninstall zustand
+npm i @react-native-async-storage/async-storage
 npx expo customize metro.config.js
 npx expo install expo-image-picker
 

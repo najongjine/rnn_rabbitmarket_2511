@@ -10,14 +10,14 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useAuthStore } from "../store/useAuthStore";
+import { useAuth } from "../context/AuthContext";
 import { KakaoAddressResponse } from "../types/types";
 
 const { width } = Dimensions.get("window");
 
 export default function Register() {
   const router = useRouter();
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const { signIn } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [repassword, setRePassword] = useState("");
@@ -149,7 +149,7 @@ export default function Register() {
         alert("회원가입이 완료되었습니다.");
         let userInfo = result?.data?.userInfo;
         let token = result?.data?.token;
-        setAuth(userInfo, token);
+        await signIn(userInfo, token);
         router.replace("/");
       } else {
         setErrorMsg(result?.msg || "회원가입에 실패했습니다.");
