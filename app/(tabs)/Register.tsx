@@ -133,7 +133,7 @@ export default function Register() {
 
       // 3. 서버 전송
       // 엔드포인트가 /register 라고 가정 (서버 설정에 맞게 수정 필요)
-      const response = await fetch(`${apiUrl}/register`, {
+      const response = await fetch(`${apiUrl}/api/user/register`, {
         method: "POST",
         body: formData,
         // 주의: FormData 사용 시 Content-Type 헤더를 직접 설정하지 않는 것이 좋습니다.
