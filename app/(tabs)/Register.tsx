@@ -33,7 +33,10 @@ export default function Register() {
     }
     let location = await Location.getCurrentPositionAsync({});
     setLocation(location);
+    getAddr(location);
   }
+
+  async function getAddr(_location: Location.LocationObject) {}
 
   useFocusEffect(
     useCallback(() => {
