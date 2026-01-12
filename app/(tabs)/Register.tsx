@@ -123,6 +123,15 @@ export default function Register() {
             }}
           />
         </View>
+        <View>
+          <Text>주소:</Text>
+          <TextInput
+            value={addr}
+            onChangeText={(e) => {
+              setAddr(e);
+            }}
+          />
+        </View>
       </ScrollView>
     </View>
   );
