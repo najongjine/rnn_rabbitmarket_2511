@@ -1,4 +1,5 @@
 npm install zustand @react-native-async-storage/async-storage
+npx expo install expo-image-picker
 
 # 빌드 하는법
 
