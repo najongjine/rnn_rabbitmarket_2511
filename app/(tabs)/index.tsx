@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Dimensions,
@@ -9,10 +9,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useAuthStore } from "../store/useAuthStore";
 
 const { width } = Dimensions.get("window");
 
 export default function HomeScreen() {
+  const router = useRouter();
+  // 2. 필요한 데이터만 쏙쏙 골라서 가져오기 (Selector 패턴)
+  const userInfo = useAuthStore((state) => state.userInfo);
+  const token = useAuthStore((state) => state.token);
+  const logout = useAuthStore((state) => state.logout);
   const [categories, setCategories] = useState<string[]>([
     "이비인후과",
     "내과",

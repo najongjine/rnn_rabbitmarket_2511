@@ -1,3 +1,5 @@
+npm install zustand @react-native-async-storage/async-storage
+
 # 빌드 하는법
 
 .env.development 복붙해서 하나 더 만들고,
