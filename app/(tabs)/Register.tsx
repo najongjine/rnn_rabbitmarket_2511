@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
-import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   Dimensions,
   ScrollView,
@@ -24,6 +24,22 @@ export default function Register() {
     null
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  async function getCurrentLocation() {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      setErrorMsg("위치 권한이 거부되었습니다.");
+      return;
+    }
+    let location = await Location.getCurrentPositionAsync({});
+    setLocation(location);
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      getCurrentLocation();
+    }, [])
+  );
 
   return (
     <View>
