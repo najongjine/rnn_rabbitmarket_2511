@@ -36,8 +36,8 @@ export default function HomeScreen() {
       >
         {/* Header Section */}
         <View style={styles.header}>
-          <Text style={styles.headerSubtitle}>내 주변 병원 찾기</Text>
-          <Text style={styles.headerTitle}>어디가 불편하신가요?</Text>
+          <Text style={styles.headerSubtitle}>{JSON.stringify(userInfo)}</Text>
+          <Text style={styles.headerTitle}>{JSON.stringify(token)}</Text>
         </View>
 
         {/* Hero Image Section */}
