@@ -150,6 +150,8 @@ export default function Register() {
         let userInfo = result?.data?.userInfo;
         let token = result?.data?.token;
         await signIn(userInfo, token);
+        console.log(`userInfo: `, userInfo);
+        console.log(`token: `, token);
         router.replace("/");
       } else {
         setErrorMsg(result?.msg || "회원가입에 실패했습니다.");
