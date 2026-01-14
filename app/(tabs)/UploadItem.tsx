@@ -76,7 +76,12 @@ export default function UploadItem() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={100}
     >
-      <ScrollView>
+      {/* 1. 부모 스크롤뷰에 nestedScrollEnabled 추가 */}
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 150 }} // 아까 말한 여백 꼭 유지하세요
+        nestedScrollEnabled={true} // ★ 이거 추가
+        keyboardDismissMode="on-drag" // 스크롤 시 키보드 내리기 (추천)
+      >
         <View>
           <Text>싱품업로드</Text>
         </View>
@@ -129,6 +134,7 @@ export default function UploadItem() {
         <View>
           <Text>내용:</Text>
           <TextInput
+            style={styles.textArea} // ★ 스타일 연결
             value={content}
             multiline={true}
             placeholder="내요을 입력해 주세요"
@@ -175,5 +181,14 @@ const styles = StyleSheet.create({
   inputSearchStyle: {
     height: 40,
     fontSize: 16,
+  },
+  textArea: {
+    height: 250, // ★ 중요: 높이를 고정해야 키보드 위로 전체가 올라옵니다
+    borderColor: "gray",
+    borderWidth: 0.5,
+    borderRadius: 8,
+    padding: 10,
+    textAlignVertical: "top", // 안드로이드에서 글자 위쪽 정렬
+    marginTop: 10,
   },
 });
