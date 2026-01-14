@@ -1,6 +1,7 @@
 npm uninstall zustand
 npm i @react-native-async-storage/async-storage
 npx expo install expo-image-picker
+npm install react-native-element-dropdown
 
 # 빌드 하는법
 
