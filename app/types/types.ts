@@ -44,3 +44,9 @@ export interface KakaoAddressResponse {
     } | null;
   }[];
 }
+
+export interface CategoryType {
+  id?: number;
+  name?: string;
+  order_no?: number;
+}
