@@ -3,6 +3,9 @@ import { useCallback, useState } from "react";
 import {
   Button,
   Dimensions,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +27,8 @@ export default function UploadItem() {
   const queryString = useLocalSearchParams();
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // ★ 2. 키보드가 보이는지 여부를 저장할 state 추가
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
   const [categoryList, setCategoryList] = useState<CategoryType[]>([
     {
@@ -41,10 +46,36 @@ export default function UploadItem() {
   const [content, setContent] = useState("");
   const [isFocus, setIsFocus] = useState(false);
 
-  useFocusEffect(useCallback(() => {}, []));
+  useFocusEffect(
+    useCallback(() => {
+      // ★ 3. 키보드 이벤트 리스너 등록
+      const keyboardDidShowListener = Keyboard.addListener(
+        "keyboardDidShow", // 키보드가 완전히 올라왔을 때
+        () => {
+          setKeyboardVisible(true);
+        } // 상태 true
+      );
+      const keyboardDidHideListener = Keyboard.addListener(
+        "keyboardDidHide", // 키보드가 완전히 내려갔을 때
+        () => {
+          setKeyboardVisible(false);
+        } // 상태 false
+      );
+
+      // 컴포넌트가 사라질 때 리스너 제거 (메모리 누수 방지)
+      return () => {
+        keyboardDidHideListener.remove();
+        keyboardDidShowListener.remove();
+      };
+    }, [])
+  );
 
   return (
-    <View>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={100}
+    >
       <ScrollView>
         <View>
           <Text>싱품업로드</Text>
@@ -96,10 +127,23 @@ export default function UploadItem() {
         </View>
 
         <View>
+          <Text>내용:</Text>
+          <TextInput
+            value={content}
+            multiline={true}
+            placeholder="내요을 입력해 주세요"
+            scrollEnabled={true}
+            onChangeText={(e) => {
+              setContent(e);
+            }}
+          />
+        </View>
+
+        <View>
           <Button title="상품등록" onPress={() => {}} />
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
