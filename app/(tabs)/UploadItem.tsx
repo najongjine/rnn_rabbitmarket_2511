@@ -82,6 +82,18 @@ export default function UploadItem() {
             }}
           />
         </View>
+        <View>
+          <Text>가격:</Text>
+          <TextInput
+            value={price}
+            keyboardType="number-pad"
+            onChangeText={(e) => {
+              // 2. 숫자(0-9)가 아닌 모든 문자는 빈 문자열로 치환
+              const numericValue = e?.replace(/[^0-9]/g, "");
+              setPrice(numericValue);
+            }}
+          />
+        </View>
 
         <View>
           <Button title="상품등록" onPress={() => {}} />
