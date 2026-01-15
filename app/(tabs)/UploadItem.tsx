@@ -93,25 +93,23 @@ export default function UploadItem() {
 
       // ★★★ [핵심] 이미지 처리 부분 ★★★
       // images State(문자열 배열)를 순회하며 FormData 형식 객체로 변환해 추가
-      images.forEach((imageUri, index) => {
-        // 파일 이름 추출 (경로에서 잘라내거나, 임의로 지정)
-        const fileName = imageUri.split("/").pop() || `upload_${index}.jpg`;
+      for (const [index, imageUri] of images.entries()) {
+        try {
+          // (1) 로컬 이미지를 fetch로 읽어서 바이너리(Blob)로 변환
+          // Expo/RN에서 file:// 경로를 fetch하면 로컬 파일을 읽을 수 있습니다.
+          const response = await fetch(imageUri);
+          const blob = await response.blob();
 
-        // 확장자 추출 및 타입 결정
-        const match = /\.(\w+)$/.exec(fileName);
-        const type = match ? `image/${match[1]}` : `image/jpeg`;
+          // (2) 파일명 만들기
+          const fileName = imageUri.split("/").pop() || `upload_${index}.jpg`;
 
-        // React Native FormData 전용 객체 생성
-        const fileData = {
-          uri: imageUri, // State에 있는 파일 경로 ('file://...')
-          name: fileName, // 파일명
-          type: type, // 파일 타입 ('image/jpeg' 등)
-        };
-
-        // TS 에러 방지: React Native의 FormData.append는 객체를 허용하지만
-        // TS 정의가 웹 표준을 따르는 경우가 있어 'as any'로 우회하는 것이 편합니다.
-        formData.append("files", fileData as any);
-      });
+          // (3) FormData에 Blob 직접 추가
+          // 3번째 인자로 파일명을 넣어주면 서버가 정확히 인식합니다.
+          formData.append("files", blob, fileName);
+        } catch (err) {
+          console.error(`이미지 변환 실패 (${index}):`, err);
+        }
+      }
 
       // 2. Fetch API 호출
       const response = await fetch(API_URL, {
