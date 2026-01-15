@@ -25,6 +25,7 @@ export default function UploadItem() {
   const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
   const kakaoRestapiKey = process.env.EXPO_PUBLIC_KAKAO_RESTAPI_KEY;
   const queryString = useLocalSearchParams();
+  const itemId = Number(queryString?.itemId || 0);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // ★ 2. 키보드가 보이는지 여부를 저장할 state 추가
@@ -67,8 +68,60 @@ export default function UploadItem() {
         keyboardDidHideListener.remove();
         keyboardDidShowListener.remove();
       };
-    }, [])
+    }, [itemId])
   );
+
+  async function onUploadItem() {
+    const API_URL = `${apiUrl}/api/item/upsert_item`;
+
+    try {
+      // 1. FormData 객체 생성 및 데이터 추가
+      const formData = new FormData();
+
+      // 숫자형 데이터도 전송 안정을 위해 문자열로 변환하여 보내는 것이 좋습니다.
+      formData.append("category_id", String(selectedCategory?.id || 0));
+      formData.append("item_id", String(itemId));
+      formData.append("title", title);
+      formData.append("content", content);
+      formData.append("price", String(price));
+
+      // 만약 이미지를 함께 보내야 한다면 아래와 같은 형식을 추가합니다.
+      // if (itemData.imageUri) {
+      //   formData.append('image', {
+      //     uri: itemData.imageUri,
+      //     type: 'image/jpeg', // 또는 image/png
+      //     name: 'upload.jpg',
+      //   });
+      // }
+
+      // 2. Fetch API 호출
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          // 주의: FormData 사용 시 'Content-Type': 'multipart/form-data'를
+          // 직접 작성하지 마세요. 자동으로 boundary가 설정되어야 합니다.
+          Authorization: `${token}`,
+          // 만약 토큰 형식이 'Bearer eyJ...'라면 `Bearer ${userToken}`으로 변경하세요.
+        },
+        body: formData,
+      });
+
+      // 3. 응답 처리
+      const result = await response.json();
+
+      if (response?.ok && result?.success) {
+        console.log("업로드 성공:", result);
+        alert("아이템이 저장되었습니다.");
+        router.replace("/");
+      } else {
+        console.error("서버 에러:", result?.msg);
+        alert(`저장에 실패했습니다. ${result?.msg}`);
+      }
+    } catch (error: any) {
+      console.error("네트워크 에러:", error?.message);
+      alert(`서버와 연결할 수 없습니다. ${error?.message}`);
+    }
+  }
 
   return (
     <KeyboardAvoidingView
@@ -146,7 +199,12 @@ export default function UploadItem() {
         </View>
 
         <View>
-          <Button title="상품등록" onPress={() => {}} />
+          <Button
+            title="상품등록"
+            onPress={() => {
+              onUploadItem();
+            }}
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
