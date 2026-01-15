@@ -1,8 +1,10 @@
+import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   Button,
   Dimensions,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -10,6 +12,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
@@ -26,6 +29,7 @@ export default function UploadItem() {
   const kakaoRestapiKey = process.env.EXPO_PUBLIC_KAKAO_RESTAPI_KEY;
   const queryString = useLocalSearchParams();
   const itemId = Number(queryString?.itemId || 0);
+  const MAX_IMAGES = 5;
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // ★ 2. 키보드가 보이는지 여부를 저장할 state 추가
@@ -46,6 +50,8 @@ export default function UploadItem() {
   const [price, setPrice] = useState("");
   const [content, setContent] = useState("");
   const [isFocus, setIsFocus] = useState(false);
+  // 이미지 URI들을 담을 배열이므로 string[] 타입을 명시
+  const [images, setImages] = useState<string[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -85,14 +91,27 @@ export default function UploadItem() {
       formData.append("content", content);
       formData.append("price", String(price));
 
-      // 만약 이미지를 함께 보내야 한다면 아래와 같은 형식을 추가합니다.
-      // if (itemData.imageUri) {
-      //   formData.append('image', {
-      //     uri: itemData.imageUri,
-      //     type: 'image/jpeg', // 또는 image/png
-      //     name: 'upload.jpg',
-      //   });
-      // }
+      // ★★★ [핵심] 이미지 처리 부분 ★★★
+      // images State(문자열 배열)를 순회하며 FormData 형식 객체로 변환해 추가
+      images.forEach((imageUri, index) => {
+        // 파일 이름 추출 (경로에서 잘라내거나, 임의로 지정)
+        const fileName = imageUri.split("/").pop() || `upload_${index}.jpg`;
+
+        // 확장자 추출 및 타입 결정
+        const match = /\.(\w+)$/.exec(fileName);
+        const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+        // React Native FormData 전용 객체 생성
+        const fileData = {
+          uri: imageUri, // State에 있는 파일 경로 ('file://...')
+          name: fileName, // 파일명
+          type: type, // 파일 타입 ('image/jpeg' 등)
+        };
+
+        // TS 에러 방지: React Native의 FormData.append는 객체를 허용하지만
+        // TS 정의가 웹 표준을 따르는 경우가 있어 'as any'로 우회하는 것이 편합니다.
+        formData.append("files", fileData as any);
+      });
 
       // 2. Fetch API 호출
       const response = await fetch(API_URL, {
@@ -123,6 +142,51 @@ export default function UploadItem() {
     }
   }
 
+  // --- 사진 선택 로직 ---
+  const pickImages = async (): Promise<void> => {
+    if (images.length >= MAX_IMAGES) {
+      alert(`최대 사진은 ${MAX_IMAGES}개 까지만 됩니다.`);
+      return;
+    }
+
+    // ImagePicker 결과 타입: ImagePickerResult
+    let result: ImagePicker.ImagePickerResult =
+      await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"], // TS에서는 이늄 대신 문자열 배열도 허용되지만, 최신 버전 권장사항 따름
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+    if (!result.canceled) {
+      // result.assets는 ImagePickerAsset[] 타입입니다.
+      const selectedAssets: ImagePicker.ImagePickerAsset[] = result.assets;
+      const currentCount: number = images.length;
+      const remainingSlots: number = MAX_IMAGES - currentCount;
+
+      if (selectedAssets.length > remainingSlots) {
+        const allowedImages: string[] = selectedAssets
+          .slice(0, remainingSlots)
+          .map((asset) => asset.uri);
+
+        setImages((prev) => [...prev, ...allowedImages]);
+
+        alert(
+          `최대 사진은 ${MAX_IMAGES}개 까지만 됩니다.\n초과된 사진은 제외되었습니다.`
+        );
+      } else {
+        const newImages: string[] = selectedAssets.map((asset) => asset.uri);
+        setImages((prev) => [...prev, ...newImages]);
+      }
+    }
+  };
+  // --- 사진 선택 로직 END---
+
+  // --- 사진 삭제 로직 ---
+  const removeImage = (indexToRemove: number): void => {
+    setImages((prev) => prev.filter((_, index) => index !== indexToRemove));
+  };
+  // --- 사진 삭제 로직 END ---
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -137,6 +201,46 @@ export default function UploadItem() {
       >
         <View>
           <Text>싱품업로드</Text>
+        </View>
+        <Text>
+          사진 등록 ({images.length}/{MAX_IMAGES})
+        </Text>
+        <View
+          style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 20 }}
+        >
+          {/* 사진 추가 버튼 */}
+          <TouchableOpacity
+            onPress={pickImages}
+            style={{
+              marginRight: 10,
+              borderWidth: 1,
+              padding: 10,
+              justifyContent: "center",
+            }}
+          >
+            <Text>+ 사진추가</Text>
+          </TouchableOpacity>
+
+          {/* 선택된 사진 미리보기 & 삭제 */}
+          {images.map((uri: string, index: number) => (
+            <View key={index} style={{ marginRight: 10, position: "relative" }}>
+              <Image
+                source={{ uri }}
+                style={{ width: 60, height: 60, backgroundColor: "#ddd" }}
+              />
+              <TouchableOpacity
+                onPress={() => removeImage(index)}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  backgroundColor: "red",
+                }}
+              >
+                <Text style={{ color: "white", fontWeight: "bold" }}> X </Text>
+              </TouchableOpacity>
+            </View>
+          ))}
         </View>
         <View>
           <Text>카테고리선택:</Text>
