@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 import { useAuth } from "../context/AuthContext";
-import { CategoryType } from "../types/types";
+import { CategoryType, ItemDetailType } from "../types/types";
 
 const { width } = Dimensions.get("window");
 
@@ -52,6 +52,57 @@ export default function UploadItem() {
   const [isFocus, setIsFocus] = useState(false);
   // 이미지 URI들을 담을 배열이므로 string[] 타입을 명시
   const [images, setImages] = useState<string[]>([]);
+
+  async function getItem() {
+    if (!itemId) {
+      return;
+    }
+    try {
+      const params = new URLSearchParams();
+      params.append("item_id", String(itemId));
+
+      const response = await fetch(
+        `${apiUrl}/api/item/get_item_by_id?${params}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `${token}`,
+          },
+        }
+      );
+      let result: any = await response.json();
+      if (response?.ok && result?.success) {
+        let _data: ItemDetailType = result?.data;
+
+        // 1. 기존 텍스트 데이터 세팅
+        setTitle(_data.title || "");
+        setContent(_data.content || "");
+        setPrice(String(_data.price || ""));
+
+        // 2. 카테고리 세팅 (ID 매칭)
+        const targetCategory = categoryList.find(
+          (c) => c.id === _data.category_id
+        );
+        if (targetCategory) {
+          setSelectedCategory(targetCategory);
+        }
+
+        // ★ 3. 이미지 데이터 세팅 (핵심 답변)
+        // 서버에서 온 객체 배열([{img_id, url...}])에서 -> 'url' 문자열만 뽑아냅니다.
+        if (_data.images && _data.images.length > 0) {
+          const serverImageUrls = _data.images.map((img) => img.url);
+          setImages(serverImageUrls);
+        }
+      } else {
+        console.error("서버 에러:", result?.msg);
+        alert(`상품정보 가져오기 실패했습니다. ${result?.msg}`);
+      }
+    } catch (error: any) {
+      console.error("네트워크 에러:", error?.message);
+      alert(`서버와 연결할 수 없습니다. ${error?.message}`);
+    } finally {
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
