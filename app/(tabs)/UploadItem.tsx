@@ -28,7 +28,7 @@ export default function UploadItem() {
   const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
   const kakaoRestapiKey = process.env.EXPO_PUBLIC_KAKAO_RESTAPI_KEY;
   const queryString = useLocalSearchParams();
-  const itemId = Number(queryString?.itemId || 0);
+  const itemId = Number(queryString?.itemId || 9);
   const MAX_IMAGES = 5;
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -73,6 +73,7 @@ export default function UploadItem() {
       let result: any = await response.json();
       if (response?.ok && result?.success) {
         let _data: ItemDetailType = result?.data;
+        console.log(`_data: `, _data);
 
         // 1. 기존 텍스트 데이터 세팅
         setTitle(_data.title || "");
@@ -119,7 +120,7 @@ export default function UploadItem() {
           setKeyboardVisible(false);
         } // 상태 false
       );
-
+      getItem();
       // 컴포넌트가 사라질 때 리스너 제거 (메모리 누수 방지)
       return () => {
         keyboardDidHideListener.remove();
