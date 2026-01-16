@@ -35,14 +35,7 @@ export default function UploadItem() {
   // ★ 2. 키보드가 보이는지 여부를 저장할 state 추가
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
-  const [categoryList, setCategoryList] = useState<CategoryType[]>([
-    {
-      id: 1,
-      name: "기타...",
-      order_no: 1,
-    },
-    { id: 2, name: "반려동물", order_no: 2 },
-  ]);
+  const [categoryList, setCategoryList] = useState<CategoryType[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CategoryType>(
     categoryList[0]
   );
@@ -53,10 +46,31 @@ export default function UploadItem() {
   // 이미지 URI들을 담을 배열이므로 string[] 타입을 명시
   const [images, setImages] = useState<string[]>([]);
 
-  async function getItem() {
-    if (!itemId) {
-      return;
+  // 반환 타입을 Promise<CategoryType[]>로 지정
+  async function getCategories(): Promise<CategoryType[]> {
+    try {
+      const response = await fetch(`${apiUrl}/api/item/get_categories`, {
+        method: "GET",
+      });
+      let result: any = await response.json();
+
+      if (response?.ok && result?.success) {
+        let _data: CategoryType[] = result?.data;
+        setCategoryList(_data);
+        return _data; // ★ 핵심: 데이터를 여기서 바로 리턴해줘야 다음 함수가 씁니다.
+      } else {
+        alert(`카테고리 가져오기 실패했습니다. ${result?.msg}`);
+        return [];
+      }
+    } catch (error: any) {
+      console.error("네트워크 에러:", error?.message);
+      return [];
     }
+  }
+  // 인자로 currentCategories를 받습니다.
+  async function getItem(currentCategories: CategoryType[]) {
+    if (!itemId) return; // itemId가 0이거나 없으면 중단 (필요 시 로직 조정)
+
     try {
       const params = new URLSearchParams();
       params.append("item_id", String(itemId));
@@ -65,43 +79,62 @@ export default function UploadItem() {
         `${apiUrl}/api/item/get_item_by_id?${params}`,
         {
           method: "GET",
-          headers: {
-            Authorization: `${token}`,
-          },
+          headers: { Authorization: `${token}` },
         }
       );
       let result: any = await response.json();
+
       if (response?.ok && result?.success) {
         let _data: ItemDetailType = result?.data;
-        console.log(`_data: `, _data);
 
-        // 1. 기존 텍스트 데이터 세팅
+        // 1. 텍스트 세팅
         setTitle(_data.title || "");
         setContent(_data.content || "");
         setPrice(String(_data.price || ""));
 
-        // 2. 카테고리 세팅 (ID 매칭)
-        const targetCategory = categoryList.find(
-          (c) => c.id === _data.category_id
-        );
-        if (targetCategory) {
-          setSelectedCategory(targetCategory);
+        // ★ 2. 카테고리 세팅 (인자로 받은 리스트에서 찾기)
+        if (currentCategories && currentCategories.length > 0) {
+          const targetCategory = currentCategories.find(
+            (c) => c.id === _data.category_id
+          );
+          if (targetCategory) {
+            setSelectedCategory(targetCategory);
+          }
         }
 
-        // ★ 3. 이미지 데이터 세팅 (핵심 답변)
-        // 서버에서 온 객체 배열([{img_id, url...}])에서 -> 'url' 문자열만 뽑아냅니다.
+        // 3. 이미지 세팅
         if (_data.images && _data.images.length > 0) {
           const serverImageUrls = _data.images.map((img) => img.url);
           setImages(serverImageUrls);
         }
       } else {
-        console.error("서버 에러:", result?.msg);
         alert(`상품정보 가져오기 실패했습니다. ${result?.msg}`);
       }
     } catch (error: any) {
-      console.error("네트워크 에러:", error?.message);
       alert(`서버와 연결할 수 없습니다. ${error?.message}`);
-    } finally {
+    }
+  }
+
+  // ★ 데이터 로딩 순서 제어 함수
+  async function loadData() {
+    // 1. 카테고리를 먼저 가져옵니다.
+    const fetchedCategories = await getCategories();
+
+    // 2. 상황에 따라 분기 처리
+    // itemId가 0이거나 유효하지 않으면 '신규 등록' 모드
+    if (!itemId || itemId === 0) {
+      // 신규 등록: 첫 번째 카테고리 자동 선택
+      if (fetchedCategories.length > 0) {
+        setSelectedCategory(fetchedCategories[0]);
+      }
+      // 신규 등록이므로 제목/내용 등 초기화 필요하면 여기서 수행
+      setTitle("");
+      setContent("");
+      setPrice("");
+      setImages([]);
+    } else {
+      // 수정 모드: getItem 실행 (방금 가져온 카테고리 목록을 넘겨줌)
+      await getItem(fetchedCategories);
     }
   }
 
@@ -120,11 +153,21 @@ export default function UploadItem() {
           setKeyboardVisible(false);
         } // 상태 false
       );
-      getItem();
+      loadData(); // 실행
       // 컴포넌트가 사라질 때 리스너 제거 (메모리 누수 방지)
       return () => {
         keyboardDidHideListener.remove();
         keyboardDidShowListener.remove();
+        // ★ [핵심] 화면 나갈 때 데이터 강제 초기화
+        // 이렇게 하면 뒤로가기 했다가 다시 들어와도 깨끗한 상태가 됩니다.
+        setTitle("");
+        setContent("");
+        setPrice("");
+        setImages([]);
+        setKeyboardVisible(false);
+        // 필요하다면 에러 메시지나 포커스 상태도 초기화
+        setErrorMsg(null);
+        setIsFocus(false);
       };
     }, [itemId])
   );
