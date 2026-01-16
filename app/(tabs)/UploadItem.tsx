@@ -28,7 +28,7 @@ export default function UploadItem() {
   const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
   const kakaoRestapiKey = process.env.EXPO_PUBLIC_KAKAO_RESTAPI_KEY;
   const queryString = useLocalSearchParams();
-  const itemId = Number(queryString?.itemId || 9);
+  const itemId = Number(queryString?.itemId || 0);
   const MAX_IMAGES = 5;
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
