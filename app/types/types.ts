@@ -94,4 +94,6 @@ export interface ItemDetailType {
 
   // COALESCE(..., '[]') 처리를 했으므로 null이 아님을 보장
   images?: ItemImageType[];
+  user_addr?: string;
+  distance_m?: number | null;
 }
