@@ -1,32 +1,88 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   Dimensions,
-  Image,
+  Keyboard,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { CategoryType } from "../types/types";
 
 const { width } = Dimensions.get("window");
 
 export default function HomeScreen() {
+  const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
   const router = useRouter();
   // 유저정보 관련 기능
   const { userInfo, token, signOut } = useAuth();
   // 유저정보 관련 기능 END
-  const [categories, setCategories] = useState<string[]>([
-    "이비인후과",
-    "내과",
-    "성형외과",
-    "신경과",
-    "안과",
-    "정형외과",
-    "피부과",
-  ]);
+  const [categoryList, setCategoryList] = useState<CategoryType[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType>(
+    categoryList[0]
+  );
+
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // ★ 데이터 로딩 순서 제어 함수
+  async function loadData() {
+    // 1. 카테고리를 먼저 가져옵니다.
+    const fetchedCategories = await getCategories();
+
+  }
+
+  async function getCategories(): Promise<CategoryType[]> {
+    try {
+      const response = await fetch(`${apiUrl}/api/item/get_categories`, {
+        method: "GET",
+      });
+      let result: any = await response.json();
+
+      if (response?.ok && result?.success) {
+        let _data: CategoryType[] = result?.data;
+        setCategoryList(_data);
+        return _data; // ★ 핵심: 데이터를 여기서 바로 리턴해줘야 다음 함수가 씁니다.
+      } else {
+        alert(`카테고리 가져오기 실패했습니다. ${result?.msg}`);
+        return [];
+      }
+    } catch (error: any) {
+      console.error("네트워크 에러:", error?.message);
+      return [];
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      // ★ 3. 키보드 이벤트 리스너 등록
+      const keyboardDidShowListener = Keyboard.addListener(
+        "keyboardDidShow", // 키보드가 완전히 올라왔을 때
+        () => {
+          setKeyboardVisible(true);
+        } // 상태 true
+      );
+      const keyboardDidHideListener = Keyboard.addListener(
+        "keyboardDidHide", // 키보드가 완전히 내려갔을 때
+        () => {
+          setKeyboardVisible(false);
+        } // 상태 false
+      );
+      loadData(); // 실행
+      // 컴포넌트가 사라질 때 리스너 제거 (메모리 누수 방지)
+      return () => {
+        keyboardDidHideListener.remove();
+        keyboardDidShowListener.remove();
+        // ★ [핵심] 화면 나갈 때 데이터 강제 초기화
+        // 이렇게 하면 뒤로가기 했다가 다시 들어와도 깨끗한 상태가 됩니다.
+        setKeyboardVisible(false);
+        // 필요하다면 에러 메시지나 포커스 상태도 초기화
+        setErrorMsg(null);
+      };
+    }, [])
+  );
 
   return (
     <View style={styles.container}>
@@ -35,52 +91,22 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header Section */}
-        <View style={styles.header}>
-          <Text style={styles.headerSubtitle}>{JSON.stringify(userInfo)}</Text>
-          <Text style={styles.headerTitle}>{JSON.stringify(token)}</Text>
+        <View >
+          <Text >{JSON.stringify(userInfo)}</Text>
+          <Text >{JSON.stringify(token)}</Text>
         </View>
 
         {/* Hero Image Section */}
-        <View style={styles.heroContainer}>
-          <Image
-            style={styles.heroImage}
-            source={require("../../assets/images/home_img.jpg")}
-            resizeMode="cover"
-          />
-          <View style={styles.heroOverlay} />
-          <Text style={styles.heroText}>빠르고 간편한{"\n"}근처 병원 찾기</Text>
+        <View >
+
+          <View />
+          <Text >토끼마켓</Text>
         </View>
 
         {/* Categories Grid Section */}
-        <View style={styles.categoryContainer}>
-          <Text style={styles.sectionTitle}>진료과목 선택</Text>
+        <View >
+          <Text >상품들</Text>
 
-          <View style={styles.gridContainer}>
-            {categories?.length &&
-              categories.map((item, index) => {
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.card}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      router.push({
-                        pathname: "/Search",
-                        params: { searchKeyword: String(item) },
-                      });
-                    }}
-                  >
-                    <View style={styles.cardContent}>
-                      {/* 아이콘 Placeholder (첫 글자) */}
-                      <View style={styles.iconPlaceholder}>
-                        <Text style={styles.iconText}>{item[0]}</Text>
-                      </View>
-                      <Text style={styles.cardTitle}>{item}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-          </View>
         </View>
       </ScrollView>
     </View>
@@ -96,117 +122,4 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  // Header Styles
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 20, // 상단 여백 약간 조정
-    paddingBottom: 20,
-    backgroundColor: "#fff",
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#888",
-    marginBottom: 4,
-    fontWeight: "600",
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#333",
-  },
-
-  // Hero Image Styles
-  heroContainer: {
-    marginHorizontal: 24,
-    marginTop: 10,
-    marginBottom: 30,
-    borderRadius: 20,
-    overflow: "hidden",
-    height: 160,
-    position: "relative",
-    // 그림자
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  heroImage: {
-    width: "100%",
-    height: "100%",
-  },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  heroText: {
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "700",
-    lineHeight: 28,
-  },
-
-  // Category Styles
-  categoryContainer: {
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 16,
-  },
-  gridContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-
-  // Card Styles
-  card: {
-    width: (width - 48 - 15) / 2, // (화면너비 - 패딩 - 사이간격) / 2
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    marginBottom: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    // 카드 그림자
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "#F0F0F0",
-  },
-  cardContent: {
-    alignItems: "center",
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginTop: 10,
-  },
-
-  // Icon Placeholder Styles
-  iconPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#E3F2FD",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  iconText: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#1E88E5",
-  },
 });
