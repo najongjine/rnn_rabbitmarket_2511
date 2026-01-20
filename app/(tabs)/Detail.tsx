@@ -180,7 +180,7 @@ export default function Detail() {
           <Text style={styles.bottomPrice}>{formattedPrice}</Text>
         </View>
         <TouchableOpacity style={styles.chatButton}>
-          <Text style={styles.chatButtonText}>채팅하기</Text>
+          <Text style={styles.chatButtonText}>거래예약</Text>
         </TouchableOpacity>
       </View>
     </View>
