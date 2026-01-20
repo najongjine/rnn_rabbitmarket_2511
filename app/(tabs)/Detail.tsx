@@ -1,309 +1,342 @@
-import { Ionicons } from "@expo/vector-icons"; // 아이콘 사용
-import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
-  Button,
-  Linking,
+  ActivityIndicator,
+  Dimensions,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import URLModal from "../component/URLModal";
-import { KakaoPlaceType } from "../types/types";
+import { useAuth } from "../context/AuthContext";
+import { ItemDetailType } from "../types/types";
+
+const { width } = Dimensions.get("window");
 
 export default function Detail() {
+  const router = useRouter();
+  const { userInfo } = useAuth();
+
+  const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
   const queryString = useLocalSearchParams();
-  // 데이터 파싱 시 에러 방지를 위해 try-catch 혹은 안전한 파싱 처리가 좋지만,
-  // 기존 로직을 유지하며 디자인에 집중하겠습니다.
-  const kakaoPlace = queryString?.kakaoPlace
-    ? (JSON.parse(String(queryString.kakaoPlace)) as KakaoPlaceType)
-    : null;
+  const item_id = Number(queryString?.item_id || 0);
 
-  /** 모달창 열기 관련 변수들 */
-  const [isModalOpen, setIsModalOpen] = useState(false); // 모달 상태 관리
+  const [item, setItem] = useState<ItemDetailType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const myLat = queryString?.myLat ?? 0; // 예시 위도
-  const myLng = queryString?.myLng ?? 0; // 예시 경도
-  // 이동 수단 선택 (car: 자동차, public: 대중교통, walk: 도보)
-  const transportMode = "walk";
-  const routeUrl =
-    kakaoPlace && myLat && myLng
-      ? `https://map.kakao.com/link/by/${transportMode}/내위치,${myLat},${myLng}/${
-          kakaoPlace?.place_name ?? "도착지"
-        },${kakaoPlace.y},${kakaoPlace.x}`
-      : "https://map.kakao.com";
-  /** 모달창 열기 관련 변수들 END */
+  // 상품 정보 가져오기
+  useEffect(() => {
+    if (!item_id) {
+      setErrorMsg("유효하지 않은 상품 ID입니다.");
+      setLoading(false);
+      return;
+    }
 
-  // 데이터가 없을 경우 예외 처리 화면
-  if (!kakaoPlace) {
+    const fetchItemDetail = async () => {
+      try {
+        setLoading(true);
+        // GET /api/item/get_item_by_id?item_id=13
+        const response = await fetch(
+          `${apiUrl}/api/item/get_item_by_id?item_id=${item_id}`,
+        );
+
+        if (!response.ok) {
+          console.error(`!에러 ${response.statusText}`);
+          alert(`!!에러 ${response.statusText}`);
+          setErrorMsg(`!!에러 ${response.statusText}`);
+          return;
+        }
+
+        const data = await response?.json();
+        console.log("data", data);
+        if (!data?.success) {
+          console.error(`!서버 에러 ${data?.msg}`);
+          alert(`!서버 에러 ${data?.msg}`);
+          setErrorMsg(`!서버 에러 ${data?.msg}`);
+          return;
+        }
+        // 실제 API 응답 구조에 따라 data 혹은 data.result 등으로 수정 필요할 수 있음
+        setItem(data?.data);
+      } catch (err: any) {
+        console.error(`!에러 ${err?.message}`);
+        alert(`!에러 ${err?.message}`);
+        setErrorMsg(`!에러 ${err?.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchItemDetail();
+  }, [item_id, apiUrl]);
+
+  if (loading) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>병원 정보를 불러올 수 없습니다.</Text>
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#FF8C00" />
       </View>
     );
   }
 
-  // 전화 걸기 기능
-  const handleCall = () => {
-    if (kakaoPlace.phone) {
-      Linking.openURL(`tel:${kakaoPlace.phone}`);
-    }
-  };
+  if (errorMsg || !item) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>
+          {errorMsg || "상품 정보가 없습니다."}
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
+          <Text style={styles.backButtonText}>돌아가기</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-  // 웹사이트 이동 기능
-  const handleOpenWeb = () => {
-    if (kakaoPlace.place_url) {
-      Linking.openURL(kakaoPlace.place_url);
-    }
-  };
+  // 가격 포맷팅 (예: 1,000원)
+  const formattedPrice = item.price?.toLocaleString() + "원";
+  const firstImage =
+    item.images && item.images.length > 0 ? item.images[0].url : null;
 
   return (
-    // 모달창 보이게 하는 최상단 View
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: "#fff" }}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <View>
-          <Text>{routeUrl}</Text>
-        </View>
-        {/* 1. 헤더 섹션: 병원 이름과 거리 */}
-        <View style={styles.headerSection}>
-          <Text style={styles.title}>{kakaoPlace.place_name}</Text>
-          <View style={styles.badgeContainer}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {kakaoPlace.distance
-                  ? `${kakaoPlace.distance}m`
-                  : "거리 정보 없음"}
-              </Text>
+        {/* 이미지 영역 */}
+        <View style={styles.imageContainer}>
+          {firstImage ? (
+            <Image
+              source={{ uri: firstImage }}
+              style={styles.itemImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.noImageContainer}>
+              <Ionicons name="image-outline" size={48} color="#ccc" />
+              <Text style={styles.noImageText}>이미지 없음</Text>
             </View>
-          </View>
+          )}
         </View>
 
-        {/* 2. 메인 액션 버튼 (전화걸기 / 웹사이트) */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.callButton]}
-            onPress={handleCall}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="call" size={20} color="#fff" />
-            <Text style={styles.callButtonText}>전화 걸기</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.webButton]}
-            onPress={handleOpenWeb}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="globe-outline" size={20} color="#333" />
-            <Text style={styles.webButtonText}>홈페이지</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 3. 상세 정보 리스트 섹션 */}
+        {/* 상세 정보 영역 */}
         <View style={styles.infoSection}>
-          {/* 주소 */}
-          <View style={styles.infoRow}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="location-outline" size={22} color="#666" />
+          <View style={styles.userInfoRow}>
+            {/* 유저 프로필 이미지 등은 없으므로 기본 아이콘이나 이름만 표시 */}
+            <View style={styles.profileIcon}>
+              <Ionicons name="person" size={20} color="#fff" />
             </View>
-            <View style={styles.infoTextContainer}>
-              <Text style={styles.infoLabel}>주소</Text>
-              <Text style={styles.infoValue}>{kakaoPlace.address_name}</Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* 전화번호 (텍스트 뷰) */}
-          <View style={styles.infoRow}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="call-outline" size={22} color="#666" />
-            </View>
-            <View style={styles.infoTextContainer}>
-              <Text style={styles.infoLabel}>전화번호</Text>
-              <Text style={styles.infoValue}>
-                {kakaoPlace.phone || "정보 없음"}
+            <View>
+              <Text style={styles.username}>판매자 (ID: {item.user_id})</Text>
+              <Text style={styles.userAddr}>
+                {item.user_addr || "위치 정보 없음"}
               </Text>
             </View>
           </View>
 
           <View style={styles.divider} />
 
-          {/* 홈페이지 (텍스트 뷰) */}
-          <View style={styles.infoRow}>
-            <View style={styles.iconContainer}>
-              <Ionicons
-                name="information-circle-outline"
-                size={22}
-                color="#666"
-              />
-            </View>
-            <View style={styles.infoTextContainer}>
-              <Text style={styles.infoLabel}>상세 정보</Text>
-              <Text
-                style={styles.infoValue}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {kakaoPlace.place_url || "정보 없음"}
-              </Text>
-            </View>
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.category}>
+            {item.category_name || "카테고리 없음"}
+          </Text>
+          <Text style={styles.price}>{formattedPrice}</Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.contentLabel}>상품 설명</Text>
+          <Text style={styles.content}>{item.content}</Text>
+
+          <View style={styles.divider} />
+
+          {/* 추가 정보 (위치 등) */}
+          <View style={styles.metaRow}>
+            <Ionicons name="location-outline" size={16} color="#666" />
+            <Text style={styles.metaText}>{item.addr || "거래 장소 미정"}</Text>
           </View>
-        </View>
-        <View>
-          <Button
-            title="지도 모달창 열기"
-            onPress={() => {
-              setIsModalOpen(true);
-            }}
-          />
+          <View style={[styles.metaRow, { marginTop: 4 }]}>
+            <Ionicons name="time-outline" size={16} color="#666" />
+            <Text style={styles.metaText}>
+              {item.created_at
+                ? new Date(item.created_at).toLocaleString()
+                : ""}
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
-      {/* 분리된 URL 모달 컴포넌트 사용 */}
-      <URLModal
-        visible={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        url={routeUrl}
-        title={kakaoPlace.place_name}
-      />
-      {/* 분리된 URL 모달 컴포넌트 사용*/}
-    </View> // 모달창 보이게 하는 최상단 View END
+      {/* 하단 구매/채팅 버튼 영역 */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity style={styles.heartButton}>
+          <Ionicons name="heart-outline" size={24} color="#666" />
+        </TouchableOpacity>
+        <View style={styles.priceContainer}>
+          <Text style={styles.bottomPrice}>{formattedPrice}</Text>
+        </View>
+        <TouchableOpacity style={styles.chatButton}>
+          <Text style={styles.chatButtonText}>채팅하기</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB", // 아주 연한 회색 배경 (눈이 편안함)
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 40,
+    paddingBottom: 80, // 하단 바 높이만큼 여백
   },
-  errorContainer: {
+  centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
   errorText: {
-    color: "#666",
     fontSize: 16,
+    color: "#666",
+    marginBottom: 16,
+  },
+  backButton: {
+    padding: 10,
+    backgroundColor: "#eee",
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: "#333",
   },
 
-  // 헤더 스타일
-  headerSection: {
-    marginBottom: 24,
+  // 이미지
+  imageContainer: {
+    width: "100%",
+    height: width, // 1:1 비율
+    backgroundColor: "#f0f0f0",
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: "#111",
-    marginBottom: 8,
-    letterSpacing: -0.5,
+  itemImage: {
+    width: "100%",
+    height: "100%",
   },
-  badgeContainer: {
-    flexDirection: "row",
-  },
-  badge: {
-    backgroundColor: "#EBF5FF", // 연한 파란색 뱃지
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  badgeText: {
-    color: "#2563EB", // 파란색 텍스트
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  // 액션 버튼 스타일
-  actionRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 32,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: "row",
-    height: 52,
-    borderRadius: 12,
+  noImageContainer: {
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    gap: 8,
-    // 그림자 효과 (Android + iOS)
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  callButton: {
-    backgroundColor: "#2563EB", // 메인 브랜드 컬러 (신뢰감을 주는 블루)
-  },
-  callButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  webButton: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  webButtonText: {
-    color: "#374151",
-    fontSize: 16,
-    fontWeight: "600",
+  noImageText: {
+    color: "#999",
+    marginTop: 8,
   },
 
-  // 정보 섹션 스타일
+  // 정보 섹션
   infoSection: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
     padding: 20,
-    // 카드 형태의 그림자
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
   },
-  infoRow: {
+  userInfoRow: {
     flexDirection: "row",
-    alignItems: "flex-start", // 텍스트가 길어질 경우를 대비해 상단 정렬
-    paddingVertical: 4,
-  },
-  iconContainer: {
-    width: 24,
-    marginRight: 16,
-    marginTop: 2, // 아이콘 위치 미세 조정
     alignItems: "center",
+    marginBottom: 16,
   },
-  infoTextContainer: {
-    flex: 1,
+  profileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#ddd",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
   },
-  infoLabel: {
-    fontSize: 12,
-    color: "#9CA3AF", // 연한 회색 라벨
-    marginBottom: 2,
-    fontWeight: "500",
-  },
-  infoValue: {
+  username: {
     fontSize: 16,
-    color: "#1F2937", // 짙은 회색 본문
-    lineHeight: 22,
+    fontWeight: "600",
+    color: "#333",
+  },
+  userAddr: {
+    fontSize: 12,
+    color: "#666",
   },
   divider: {
     height: 1,
-    backgroundColor: "#F3F4F6", // 아주 옅은 구분선
+    backgroundColor: "#eee",
     marginVertical: 16,
+  },
+
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 8,
+  },
+  category: {
+    fontSize: 14,
+    color: "#888",
+    marginBottom: 8,
+  },
+  price: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  contentLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+    color: "#333",
+  },
+  content: {
+    fontSize: 16,
+    color: "#333",
+    lineHeight: 24,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 14,
+    color: "#666",
+  },
+
+  // 하단 바
+  bottomBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    backgroundColor: "#fff",
+  },
+  heartButton: {
+    padding: 10,
+    marginRight: 10,
+  },
+  priceContainer: {
+    flex: 1,
+    paddingLeft: 10,
+    borderLeftWidth: 1,
+    borderLeftColor: "#eee",
+  },
+  bottomPrice: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  chatButton: {
+    backgroundColor: "#FF8C00", // 당근마켓 주황색 계열
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  chatButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

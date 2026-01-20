@@ -230,13 +230,19 @@ export default function HomeScreen() {
           </ScrollView>
 
           {items.map((item, index) => (
-            <View
+            <TouchableOpacity
               key={index}
               style={{
                 marginBottom: 20,
                 padding: 10,
                 backgroundColor: "white",
                 borderRadius: 10,
+              }}
+              onPress={() => {
+                router.push({
+                  pathname: "/(tabs)/Detail",
+                  params: { item_id: item.item_id },
+                });
               }}
             >
               <Text style={{ fontSize: 16, fontWeight: "bold" }}>
@@ -247,7 +253,7 @@ export default function HomeScreen() {
                 {item.addr}{" "}
                 {item.distance_m ? `(${Math.round(item.distance_m)}m)` : ""}
               </Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
