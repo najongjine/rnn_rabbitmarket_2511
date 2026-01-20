@@ -203,39 +203,55 @@ export default function HomeScreen() {
         </View>
 
         {/* Categories Grid Section */}
-        <View>
+        <View style={{ position: "relative", minHeight: 500 }}>
+          {/* Background Lottie Layer */}
+          <View
+            style={[StyleSheet.absoluteFill, { zIndex: 0 }]}
+            pointerEvents="none"
+          >
+            <LottieView
+              source={require("../../assets/lottie/Angry_bird.json")}
+              style={{ width: "100%", height: "100%", opacity: 0.5 }}
+              autoPlay
+              loop
+              resizeMode="cover"
+            />
+          </View>
           <Text style={{ fontSize: 18, fontWeight: "bold", margin: 10 }}>
             상품들
           </Text>
 
           {/* Category Selection UI */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginBottom: 10, paddingHorizontal: 10 }}
-          >
-            {categoryList.map((cat, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => handleSelectCategory(cat)}
-                style={{
-                  padding: 10,
-                  marginRight: 10,
-                  backgroundColor:
-                    selectedCategory?.id === cat.id ? "#007AFF" : "#E0E0E0",
-                  borderRadius: 20,
-                }}
-              >
-                <Text
+          <View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginBottom: 10, paddingHorizontal: 10, flexGrow: 0 }}
+            >
+              {categoryList.map((cat, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => handleSelectCategory(cat)}
                   style={{
-                    color: selectedCategory?.id === cat.id ? "white" : "black",
+                    padding: 10,
+                    marginRight: 10,
+                    backgroundColor:
+                      selectedCategory?.id === cat.id ? "#007AFF" : "#E0E0E0",
+                    borderRadius: 20,
                   }}
                 >
-                  {cat.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                  <Text
+                    style={{
+                      color:
+                        selectedCategory?.id === cat.id ? "white" : "black",
+                    }}
+                  >
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
           {items.map((item, index) => (
             <TouchableOpacity
@@ -243,7 +259,7 @@ export default function HomeScreen() {
               style={{
                 marginBottom: 20,
                 padding: 10,
-                backgroundColor: "white",
+                backgroundColor: "rgba(255, 255, 255, 0.7)", // 배경을 반투명하게 변경
                 borderRadius: 10,
               }}
               onPress={() => {
