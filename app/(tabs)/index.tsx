@@ -1,4 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
+import LottieView from "lottie-react-native";
 import { useCallback, useState } from "react";
 import {
   Dimensions,
@@ -160,9 +161,16 @@ export default function HomeScreen() {
         </View>
 
         {/* Hero Image Section */}
-        <View>
-          <View />
-          <Text>토끼마켓</Text>
+        <View style={{ alignItems: "center", marginVertical: 10 }}>
+          <LottieView
+            source={require("../../assets/lottie/Bunny_Hop.json")}
+            style={{ width: 200, height: 200 }}
+            autoPlay
+            loop
+          />
+          <Text style={{ fontSize: 24, fontWeight: "bold", marginTop: 10 }}>
+            토끼마켓
+          </Text>
         </View>
 
         {/* Search Section */}
