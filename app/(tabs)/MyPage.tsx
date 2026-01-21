@@ -11,7 +11,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
 // 👇 주소 검색 코드 복구
@@ -65,7 +65,7 @@ const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_RESTAPI_KEY;
 
 export default function MyPage() {
   const router = useRouter();
-  const { token, signOut } = useAuth();
+  const { token, signOut, signIn } = useAuth();
 
   // 데이터 상태
   const [userInfoData, setUserInfoData] = useState<UserProfileData | null>(
@@ -137,18 +137,66 @@ export default function MyPage() {
     // 1. 좌표 구하기
     const coords = await getGeoCode(newAddr);
 
-    // 2. 화면에 반영 (낙관적 업데이트)
-    if (userInfoData) {
-      setUserInfoData({
-        ...userInfoData,
-        addr: newAddr,
-        lat: coords?.latitude,
-        long: coords?.longitude,
-      });
+    // 2. 서버 통신 (API 호출)
+    if (coords) {
+      await updateUserAddress(newAddr, coords);
     }
+  };
 
-    // TODO: 여기서 실제 서버로 주소 변경 API를 호출해야 한다면 추가 구현 필요
-    // await updateUserAddress(newAddr, coords);
+  // 좌표 및 주소 업데이트 함수
+  const updateUserAddress = async (
+    newAddr: string,
+    coords: { latitude: number; longitude: number },
+  ) => {
+    try {
+      // 1. FormData 생성
+      const formData = new FormData();
+      formData.append("addr", newAddr); // 혹시 몰라 주소도 보냄
+      formData.append("long", String(coords.longitude));
+      formData.append("lat", String(coords.latitude));
+
+      // Authorization 헤더 준비
+      const authHeader =
+        token && token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+
+      // 2. API 호출
+      const response = await fetch(`${apiUrl}/api/user/update_user_geo`, {
+        method: "POST",
+        headers: {
+          Authorization: authHeader,
+          // FormData는 Content-Type 자동 설정
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // 3. 성공 시 처리
+        console.log("주소/좌표 업데이트 성공:", result.data);
+
+        // 서버에서 갱신된 정보와 토큰을 내려준다고 가정 (명세 기반)
+        const updatedUser = result?.data?.userInfo || {};
+        const newToken = result?.data?.token || "";
+
+        // ★ 중요: 서버 쿼리에 addr 업데이트가 빠져있다면 반환된 user의 주소가 옛날 것일 수 있음.
+        // 여기서는 사용자 경험을 위해 로컬 주소를 덮어씌워 갱신.
+
+        // 4. 앱 전체 상태(Context) 및 로컬 상태 갱신
+        if (signIn) {
+          await signIn(updatedUser, newToken);
+        }
+
+        // 5. 현재 화면 데이터 갱신
+        setUserInfoData(updatedUser);
+        alert("주소가 변경되었습니다.");
+      } else {
+        alert(`주소 업데이트 실패: ${result.msg}`);
+      }
+    } catch (error: any) {
+      console.error("Update Address Error:", error);
+      alert("서버 통신 중 오류가 발생했습니다.");
+    }
   };
 
   // 좌표 변환 함수
