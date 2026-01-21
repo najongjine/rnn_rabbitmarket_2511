@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import LottieView from "lottie-react-native";
 import { useCallback, useState } from "react";
@@ -258,9 +259,17 @@ export default function HomeScreen() {
               key={index}
               style={{
                 marginBottom: 20,
-                padding: 10,
                 backgroundColor: "rgba(255, 255, 255, 0.7)", // 배경을 반투명하게 변경
                 borderRadius: 10,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 5,
+                elevation: 3,
+                overflow: "hidden", // 이미지가 둥근 모서리를 넘치지 않게 함
+                flexDirection: "row", // ★ 가로 배치로 변경
+                alignItems: "center", // 세로 중앙 정렬
+                padding: 10,
               }}
               onPress={() => {
                 router.push({
@@ -269,14 +278,45 @@ export default function HomeScreen() {
                 });
               }}
             >
-              <Text style={{ fontSize: 16, fontWeight: "bold" }}>
-                {item.title}
-              </Text>
-              <Text>{item.price?.toLocaleString()}원</Text>
-              <Text style={{ color: "gray" }}>
-                {item.addr}{" "}
-                {item.distance_m ? `(${Math.round(item.distance_m)}m)` : ""}
-              </Text>
+              {/* 이미지 영역 (썸네일) */}
+              {item.images && item.images.length > 0 ? (
+                <Image
+                  source={{ uri: item.images[0].url }}
+                  style={{ width: 80, height: 80, borderRadius: 8 }}
+                  contentFit="cover"
+                  transition={500}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 8,
+                    backgroundColor: "#e0e0e0",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ color: "gray", fontSize: 10 }}>No Image</Text>
+                </View>
+              )}
+
+              {/* 텍스트 정보 영역 */}
+              <View style={{ flex: 1, marginLeft: 15 }}>
+                <Text
+                  style={{ fontSize: 16, fontWeight: "bold" }}
+                  numberOfLines={1}
+                >
+                  {item.title}
+                </Text>
+                <Text style={{ marginTop: 4, fontSize: 15, fontWeight: "600" }}>
+                  {item.price?.toLocaleString()}원
+                </Text>
+                <Text style={{ color: "gray", marginTop: 4, fontSize: 13 }}>
+                  {item.addr}{" "}
+                  {item.distance_m ? `(${Math.round(item.distance_m)}m)` : ""}
+                </Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
