@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 // 타입 정의
 interface UserInfo {
+  id: number;
   username: string;
   nickname: string;
   addr?: string;

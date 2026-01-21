@@ -179,9 +179,23 @@ export default function Detail() {
         <View style={styles.priceContainer}>
           <Text style={styles.bottomPrice}>{formattedPrice}</Text>
         </View>
-        <TouchableOpacity style={styles.chatButton}>
-          <Text style={styles.chatButtonText}>거래예약</Text>
-        </TouchableOpacity>
+        {userInfo?.id === item.user_id ? (
+          <TouchableOpacity
+            style={styles.chatButton}
+            onPress={() => {
+              router.push({
+                pathname: "/UploadItem",
+                params: { itemId: item.item_id },
+              });
+            }}
+          >
+            <Text style={styles.chatButtonText}>수정하기</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.chatButton}>
+            <Text style={styles.chatButtonText}>거래예약</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
