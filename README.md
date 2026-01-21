@@ -4,6 +4,7 @@ npx expo install expo-image-picker
 npm install react-native-element-dropdown
 npx expo install lottie-react-native
 npm install @lottiefiles/dotlottie-react
+npm install @actbase/react-daum-postcode react-native-webview
 
 # 빌드 하는법
 
