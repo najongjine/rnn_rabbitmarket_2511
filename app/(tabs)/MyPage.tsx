@@ -245,22 +245,59 @@ export default function MyPage() {
           resizeMode="cover"
         />
         <View style={styles.itemInfo}>
-          <Text style={styles.itemTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
-          <Text style={styles.itemPrice}>{item.price.toLocaleString()}원</Text>
-          <View style={styles.itemStatusContainer}>
-            <Text
-              style={[
-                styles.itemStatus,
-                item.status === "sale" ? styles.statusSale : styles.statusSold,
-              ]}
+          <View>
+            <Text style={styles.itemTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Text style={styles.itemPrice}>
+              {item.price.toLocaleString()}원
+            </Text>
+            <View style={styles.itemStatusContainer}>
+              <Text
+                style={[
+                  styles.itemStatus,
+                  item.status === "sale"
+                    ? styles.statusSale
+                    : styles.statusSold,
+                ]}
+              >
+                {item.status === "sale" ? "판매중" : item.status}
+              </Text>
+              <Text style={styles.itemDate}>
+                {new Date(item.created_at).toLocaleDateString()}
+              </Text>
+            </View>
+          </View>
+
+          {/* 👇 수정 / 상세보기 버튼 영역 */}
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                // 상세보기: item_id 파라미터
+                router.push({
+                  pathname: "/(tabs)/Detail",
+                  params: { item_id: item.id },
+                });
+              }}
             >
-              {item.status === "sale" ? "판매중" : item.status}
-            </Text>
-            <Text style={styles.itemDate}>
-              {new Date(item.created_at).toLocaleDateString()}
-            </Text>
+              <Text style={styles.actionButtonText}>상세보기</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.editButton]}
+              onPress={() => {
+                // 수정하기: itemId 파라미터 (UploadItem에서 itemId 수신)
+                router.push({
+                  pathname: "/(tabs)/UploadItem",
+                  params: { itemId: item.id },
+                });
+              }}
+            >
+              <Text style={[styles.actionButtonText, styles.editButtonText]}>
+                수정
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -522,6 +559,27 @@ const styles = StyleSheet.create({
   itemDate: {
     fontSize: 12,
     color: "#999",
+  },
+  actionButtonsContainer: {
+    flexDirection: "row",
+    marginTop: 10,
+    gap: 8,
+  },
+  actionButton: {
+    backgroundColor: "#eee",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    color: "#333",
+  },
+  editButton: {
+    backgroundColor: "#007AFF",
+  },
+  editButtonText: {
+    color: "#fff",
   },
   emptyContainer: {
     padding: 40,
