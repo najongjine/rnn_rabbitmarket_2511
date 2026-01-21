@@ -180,15 +180,26 @@ export default function MyPage() {
         const newToken = result?.data?.token || "";
 
         // ★ 중요: 서버 쿼리에 addr 업데이트가 빠져있다면 반환된 user의 주소가 옛날 것일 수 있음.
-        // 여기서는 사용자 경험을 위해 로컬 주소를 덮어씌워 갱신.
+        // 하지만 여기서는 서버가 RETURNING * 로 반환한 user 객체(items 없음)가 옴.
+        // 기존 items를 유지하면서 user 정보만 갱신해야 함.
 
         // 4. 앱 전체 상태(Context) 및 로컬 상태 갱신
         if (signIn) {
+          // AuthContext에는 items가 필요 없으므로 그대로 저장
           await signIn(updatedUser, newToken);
         }
 
-        // 5. 현재 화면 데이터 갱신
-        setUserInfoData(updatedUser);
+        // 5. 현재 화면 데이터 갱신 (기존 items 유지)
+        setUserInfoData((prev) => {
+          if (!prev) return updatedUser;
+          return {
+            ...prev,
+            ...updatedUser,
+            items: prev.items || [], // 기존 아이템 유지
+            addr: newAddr, // 주소 강제 보정
+          };
+        });
+
         alert("주소가 변경되었습니다.");
       } else {
         alert(`주소 업데이트 실패: ${result.msg}`);
@@ -330,7 +341,7 @@ export default function MyPage() {
 
             <View style={styles.sectionTitleContainer}>
               <Text style={styles.sectionTitle}>
-                판매 내역 ({userInfoData?.items.length || 0})
+                판매 내역 ({userInfoData?.items?.length || 0})
               </Text>
             </View>
           </>
