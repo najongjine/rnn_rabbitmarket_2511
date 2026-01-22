@@ -7,3 +7,5 @@ gemini api를 이용한 상품 자동 작성,
     검색,
     
 }
+
+EXPO_PUBLIC_HONO_API_BASEURL="http://localhost:3000"
