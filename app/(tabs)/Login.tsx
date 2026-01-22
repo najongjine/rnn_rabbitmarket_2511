@@ -92,6 +92,7 @@ export default function Login() {
           <Text>password:</Text>
           <TextInput
             value={password}
+            secureTextEntry
             onChangeText={(e) => {
               setPassword(e);
             }}
@@ -99,7 +100,7 @@ export default function Login() {
         </View>
 
         <View>
-          <Button title="회원가입" onPress={onLogin} />
+          <Button title="로그인" onPress={onLogin} />
         </View>
       </ScrollView>
     </View>

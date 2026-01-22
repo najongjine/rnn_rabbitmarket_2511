@@ -30,7 +30,7 @@ export default function Register() {
   const queryString = useLocalSearchParams();
 
   const [location, setLocation] = useState<Location.LocationObject | null>(
-    null
+    null,
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -67,7 +67,7 @@ export default function Register() {
 
       if (!response.ok) {
         throw new Error(
-          `Kakao API Error: ${response.status} ${response.statusText}`
+          `Kakao API Error: ${response.status} ${response.statusText}`,
         );
       }
 
@@ -94,7 +94,7 @@ export default function Register() {
   useFocusEffect(
     useCallback(() => {
       getCurrentLocation();
-    }, [])
+    }, []),
   );
 
   async function onRegister() {
@@ -182,6 +182,7 @@ export default function Register() {
           <Text>password:</Text>
           <TextInput
             value={password}
+            secureTextEntry
             onChangeText={(e) => {
               setPassword(e);
             }}
@@ -191,6 +192,7 @@ export default function Register() {
           <Text>password 재입력:</Text>
           <TextInput
             value={repassword}
+            secureTextEntry
             onChangeText={(e) => {
               setRePassword(e);
             }}
