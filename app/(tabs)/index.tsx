@@ -12,8 +12,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Loading from "../component/Loading";
 import { useAuth } from "../context/AuthContext";
 import { CategoryType, ItemDetailType } from "../types/types";
+import { fetchWithTimeout } from "../utils/api";
 
 const { width } = Dimensions.get("window");
 
@@ -32,16 +34,25 @@ export default function HomeScreen() {
 
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   // ★ 데이터 로딩 순서 제어 함수
+  // ★ 데이터 로딩 순서 제어 함수
   async function loadData() {
-    // 1. 카테고리를 먼저 가져옵니다.
-    const fetchedCategories = await getCategories();
-    // 2. 상품 목록을 가져옵니다. (기본값: 전체=0)
-    if (fetchedCategories.length > 0) {
-      await getItems(fetchedCategories[0].id);
-    } else {
-      await getItems(0);
+    try {
+      setLoading(true);
+      // 1. 카테고리를 먼저 가져옵니다.
+      const fetchedCategories = await getCategories();
+      // 2. 상품 목록을 가져옵니다. (기본값: 전체=0)
+      if (fetchedCategories.length > 0) {
+        await getItems(fetchedCategories[0].id);
+      } else {
+        await getItems(0);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -52,6 +63,7 @@ export default function HomeScreen() {
 
   async function getItems(categoryId?: number) {
     try {
+      setLoading(true);
       // 위치 정보가 있으면 보낼 수 있지만, 현재는 null로 처리 (필요시 userInfo.addr 등을 좌표로 변환 필요)
       const paramLong = null;
       const paramLat = null;
@@ -72,7 +84,7 @@ export default function HomeScreen() {
 
       const url = `${apiUrl}/api/item/get_items?${queryParams.toString()}`;
 
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -89,14 +101,19 @@ export default function HomeScreen() {
       }
     } catch (error: any) {
       console.error("상품 가져오기 에러:", error?.message);
+    } finally {
+      setLoading(false);
     }
   }
 
   async function getCategories(): Promise<CategoryType[]> {
     try {
-      const response = await fetch(`${apiUrl}/api/item/get_categories`, {
-        method: "GET",
-      });
+      const response = await fetchWithTimeout(
+        `${apiUrl}/api/item/get_categories`,
+        {
+          method: "GET",
+        },
+      );
       let result: any = await response.json();
 
       if (response?.ok && result?.success) {
@@ -321,6 +338,39 @@ export default function HomeScreen() {
           ))}
         </View>
       </ScrollView>
+
+      {/* Product+ Floating Action Button */}
+      <TouchableOpacity
+        style={{
+          position: "absolute",
+          bottom: 20,
+          right: 20,
+          backgroundColor: "#FF8C00",
+          borderRadius: 30,
+          paddingVertical: 15,
+          paddingHorizontal: 20,
+          elevation: 5,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          flexDirection: "row",
+          alignItems: "center",
+          zIndex: 999,
+        }}
+        onPress={() => {
+          router.push({
+            pathname: "/UploadItem",
+            params: { itemId: 0 },
+          });
+        }}
+      >
+        <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>
+          상품+
+        </Text>
+      </TouchableOpacity>
+
+      <Loading visible={loading} />
     </View>
   );
 }

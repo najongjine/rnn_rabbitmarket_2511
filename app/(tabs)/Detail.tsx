@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Dimensions,
   Image,
   ScrollView,
@@ -11,8 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Loading from "../component/Loading";
 import { useAuth } from "../context/AuthContext";
 import { ItemDetailType } from "../types/types";
+import { fetchWithTimeout } from "../utils/api";
 
 const { width } = Dimensions.get("window");
 
@@ -40,7 +41,7 @@ export default function Detail() {
       try {
         setLoading(true);
         // GET /api/item/get_item_by_id?item_id=13
-        const response = await fetch(
+        const response = await fetchWithTimeout(
           `${apiUrl}/api/item/get_item_by_id?item_id=${item_id}`,
         );
 
@@ -75,8 +76,8 @@ export default function Detail() {
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#FF8C00" />
+      <View style={styles.container}>
+        <Loading visible={true} />
       </View>
     );
   }

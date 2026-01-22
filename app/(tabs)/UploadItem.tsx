@@ -16,8 +16,10 @@ import {
   View,
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
+import Loading from "../component/Loading";
 import { useAuth } from "../context/AuthContext";
 import { CategoryType, ItemDetailType } from "../types/types";
+import { fetchWithTimeout } from "../utils/api";
 
 const { width } = Dimensions.get("window");
 
@@ -34,10 +36,11 @@ export default function UploadItem() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // ★ 2. 키보드가 보이는지 여부를 저장할 state 추가
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [categoryList, setCategoryList] = useState<CategoryType[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CategoryType>(
-    categoryList[0]
+    categoryList[0],
   );
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
@@ -49,9 +52,12 @@ export default function UploadItem() {
   // 반환 타입을 Promise<CategoryType[]>로 지정
   async function getCategories(): Promise<CategoryType[]> {
     try {
-      const response = await fetch(`${apiUrl}/api/item/get_categories`, {
-        method: "GET",
-      });
+      const response = await fetchWithTimeout(
+        `${apiUrl}/api/item/get_categories`,
+        {
+          method: "GET",
+        },
+      );
       let result: any = await response.json();
 
       if (response?.ok && result?.success) {
@@ -75,12 +81,12 @@ export default function UploadItem() {
       const params = new URLSearchParams();
       params.append("item_id", String(itemId));
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${apiUrl}/api/item/get_item_by_id?${params}`,
         {
           method: "GET",
           headers: { Authorization: `${token}` },
-        }
+        },
       );
       let result: any = await response.json();
 
@@ -95,7 +101,7 @@ export default function UploadItem() {
         // ★ 2. 카테고리 세팅 (인자로 받은 리스트에서 찾기)
         if (currentCategories && currentCategories.length > 0) {
           const targetCategory = currentCategories.find(
-            (c) => c.id === _data.category_id
+            (c) => c.id === _data.category_id,
           );
           if (targetCategory) {
             setSelectedCategory(targetCategory);
@@ -117,24 +123,31 @@ export default function UploadItem() {
 
   // ★ 데이터 로딩 순서 제어 함수
   async function loadData() {
-    // 1. 카테고리를 먼저 가져옵니다.
-    const fetchedCategories = await getCategories();
+    try {
+      setLoading(true);
+      // 1. 카테고리를 먼저 가져옵니다.
+      const fetchedCategories = await getCategories();
 
-    // 2. 상황에 따라 분기 처리
-    // itemId가 0이거나 유효하지 않으면 '신규 등록' 모드
-    if (!itemId || itemId === 0) {
-      // 신규 등록: 첫 번째 카테고리 자동 선택
-      if (fetchedCategories.length > 0) {
-        setSelectedCategory(fetchedCategories[0]);
+      // 2. 상황에 따라 분기 처리
+      // itemId가 0이거나 유효하지 않으면 '신규 등록' 모드
+      if (!itemId || itemId === 0) {
+        // 신규 등록: 첫 번째 카테고리 자동 선택
+        if (fetchedCategories.length > 0) {
+          setSelectedCategory(fetchedCategories[0]);
+        }
+        // 신규 등록이므로 제목/내용 등 초기화 필요하면 여기서 수행
+        setTitle("");
+        setContent("");
+        setPrice("");
+        setImages([]);
+      } else {
+        // 수정 모드: getItem 실행 (방금 가져온 카테고리 목록을 넘겨줌)
+        await getItem(fetchedCategories);
       }
-      // 신규 등록이므로 제목/내용 등 초기화 필요하면 여기서 수행
-      setTitle("");
-      setContent("");
-      setPrice("");
-      setImages([]);
-    } else {
-      // 수정 모드: getItem 실행 (방금 가져온 카테고리 목록을 넘겨줌)
-      await getItem(fetchedCategories);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -145,13 +158,13 @@ export default function UploadItem() {
         "keyboardDidShow", // 키보드가 완전히 올라왔을 때
         () => {
           setKeyboardVisible(true);
-        } // 상태 true
+        }, // 상태 true
       );
       const keyboardDidHideListener = Keyboard.addListener(
         "keyboardDidHide", // 키보드가 완전히 내려갔을 때
         () => {
           setKeyboardVisible(false);
-        } // 상태 false
+        }, // 상태 false
       );
       loadData(); // 실행
       // 컴포넌트가 사라질 때 리스너 제거 (메모리 누수 방지)
@@ -169,13 +182,14 @@ export default function UploadItem() {
         setErrorMsg(null);
         setIsFocus(false);
       };
-    }, [itemId])
+    }, [itemId]),
   );
 
   async function onUploadItem() {
     const API_URL = `${apiUrl}/api/item/upsert_item`;
 
     try {
+      setLoading(true);
       // 1. FormData 객체 생성 및 데이터 추가
       const formData = new FormData();
 
@@ -207,7 +221,7 @@ export default function UploadItem() {
       }
 
       // 2. Fetch API 호출
-      const response = await fetch(API_URL, {
+      const response = await fetchWithTimeout(API_URL, {
         method: "POST",
         headers: {
           // 주의: FormData 사용 시 'Content-Type': 'multipart/form-data'를
@@ -232,6 +246,8 @@ export default function UploadItem() {
     } catch (error: any) {
       console.error("네트워크 에러:", error?.message);
       alert(`서버와 연결할 수 없습니다. ${error?.message}`);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -264,7 +280,7 @@ export default function UploadItem() {
         setImages((prev) => [...prev, ...allowedImages]);
 
         alert(
-          `최대 사진은 ${MAX_IMAGES}개 까지만 됩니다.\n초과된 사진은 제외되었습니다.`
+          `최대 사진은 ${MAX_IMAGES}개 까지만 됩니다.\n초과된 사진은 제외되었습니다.`,
         );
       } else {
         const newImages: string[] = selectedAssets.map((asset) => asset.uri);
@@ -404,6 +420,10 @@ export default function UploadItem() {
           />
         </View>
       </ScrollView>
+      <Loading
+        visible={loading}
+        text={itemId ? "불러오는 중..." : "저장 중..."}
+      />
     </KeyboardAvoidingView>
   );
 }
