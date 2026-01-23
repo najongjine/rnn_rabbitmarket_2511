@@ -1,13 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import {
-  Dimensions,
+  FlatList,
   Image,
+  Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Loading from "../component/Loading";
@@ -15,11 +18,15 @@ import { useAuth } from "../context/AuthContext";
 import { ItemDetailType } from "../types/types";
 import { fetchWithTimeout } from "../utils/api";
 
-const { width } = Dimensions.get("window");
-
 export default function Detail() {
   const router = useRouter();
   const { userInfo } = useAuth();
+  const { width } = useWindowDimensions();
+
+  // On Desktop/Web, width can be huge (e.g. 1920).
+  // We clamp the image height to ensure content is visible.
+  // Mobile: width * 0.75 (300~400px). Desktop: max 500px.
+  const IMAGE_HEIGHT = Math.min(width * 0.75, 450);
 
   const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
   const queryString = useLocalSearchParams();
@@ -28,55 +35,65 @@ export default function Detail() {
   const [item, setItem] = useState<ItemDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const flatListRef = useRef<FlatList>(null);
 
   // 상품 정보 가져오기
-  useEffect(() => {
-    if (!item_id) {
-      setErrorMsg("유효하지 않은 상품 ID입니다.");
-      setLoading(false);
-      return;
-    }
-
-    const fetchItemDetail = async () => {
-      try {
-        setLoading(true);
-        // GET /api/item/get_item_by_id?item_id=13
-        const response = await fetchWithTimeout(
-          `${apiUrl}/api/item/get_item_by_id?item_id=${item_id}`,
-        );
-
-        if (!response.ok) {
-          console.error(`!에러 ${response.statusText}`);
-          alert(`!!에러 ${response.statusText}`);
-          setErrorMsg(`!!에러 ${response.statusText}`);
-          return;
-        }
-
-        const data = await response?.json();
-        console.log("data", data);
-        if (!data?.success) {
-          console.error(`!서버 에러 ${data?.msg}`);
-          alert(`!서버 에러 ${data?.msg}`);
-          setErrorMsg(`!서버 에러 ${data?.msg}`);
-          return;
-        }
-        // 실제 API 응답 구조에 따라 data 혹은 data.result 등으로 수정 필요할 수 있음
-        setItem(data?.data);
-      } catch (err: any) {
-        console.error(`!에러 ${err?.message}`);
-        alert(`!에러 ${err?.message}`);
-        setErrorMsg(`!에러 ${err?.message}`);
-      } finally {
+  useFocusEffect(
+    useCallback(() => {
+      if (!item_id) {
+        setErrorMsg("유효하지 않은 상품 ID입니다.");
         setLoading(false);
+        return;
       }
-    };
 
-    fetchItemDetail();
-  }, [item_id, apiUrl]);
+      const fetchItemDetail = async () => {
+        try {
+          setLoading(true);
+          const response = await fetchWithTimeout(
+            `${apiUrl}/api/item/get_item_by_id?item_id=${item_id}`,
+          );
+
+          if (!response.ok) {
+            throw new Error(response.statusText);
+          }
+
+          const data = await response?.json();
+          if (!data?.success) {
+            throw new Error(data?.msg || "서버 에러");
+          }
+          console.log("data", data?.data);
+          setItem(data?.data);
+        } catch (err: any) {
+          console.error(`Error: ${err?.message}`);
+          setErrorMsg(err?.message || "상품 정보를 불러오는데 실패했습니다.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchItemDetail();
+    }, [item_id, apiUrl]),
+  );
+
+  const handleScroll = (index: number) => {
+    if (!item?.images || item.images.length === 0) return;
+    if (index < 0 || index >= item.images.length) return;
+
+    flatListRef.current?.scrollToIndex({ index, animated: true });
+    setActiveIndex(index);
+  };
+
+  const onMomentumScrollEnd = (e: any) => {
+    const x = e.nativeEvent.contentOffset.x;
+    const index = Math.round(x / width);
+    setActiveIndex(index);
+  };
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingContainer}>
         <Loading visible={true} />
       </View>
     );
@@ -84,7 +101,8 @@ export default function Detail() {
 
   if (errorMsg || !item) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color="#999" />
         <Text style={styles.errorText}>
           {errorMsg || "상품 정보가 없습니다."}
         </Text>
@@ -98,105 +116,190 @@ export default function Detail() {
     );
   }
 
-  // 가격 포맷팅 (예: 1,000원)
-  const formattedPrice = item.price?.toLocaleString() + "원";
-  const firstImage =
-    item.images && item.images.length > 0 ? item.images[0].url : null;
+  const formattedPrice = item.price
+    ? `${item.price.toLocaleString()}원`
+    : "가격 미정";
+  const hasImages = item.images && item.images.length > 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#fff" }}>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* 이미지 영역 */}
-        <View style={styles.imageContainer}>
-          {firstImage ? (
-            <Image
-              source={{ uri: firstImage }}
-              style={styles.itemImage}
-              resizeMode="cover"
-            />
+        {/* Image Carousel Section */}
+        <View
+          style={{
+            position: "relative",
+            width: width,
+            height: IMAGE_HEIGHT,
+            backgroundColor: "#212529",
+          }}
+        >
+          {hasImages ? (
+            <>
+              <FlatList
+                ref={flatListRef}
+                data={item.images}
+                keyExtractor={(img, idx) => `${img.img_id}-${idx}`}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={onMomentumScrollEnd}
+                getItemLayout={(_, index) => ({
+                  length: width,
+                  offset: width * index,
+                  index,
+                })}
+                onScrollToIndexFailed={(info) => {
+                  const wait = new Promise((resolve) =>
+                    setTimeout(resolve, 500),
+                  );
+                  wait.then(() => {
+                    flatListRef.current?.scrollToIndex({
+                      index: info.index,
+                      animated: true,
+                    });
+                  });
+                }}
+                renderItem={({ item: img }) => (
+                  <Image
+                    source={{ uri: img.url }}
+                    style={{
+                      width: width,
+                      height: IMAGE_HEIGHT,
+                    }}
+                    resizeMode="contain"
+                  />
+                )}
+              />
+
+              {/* Pagination Counter */}
+              <View style={styles.paginationBadge}>
+                <Text style={styles.paginationText}>
+                  {activeIndex + 1} / {item.images!.length}
+                </Text>
+              </View>
+
+              {/* Navigation Arrows */}
+              {item.images!.length > 1 && (
+                <>
+                  {activeIndex > 0 && (
+                    <TouchableOpacity
+                      style={[styles.arrowButton, styles.leftArrow]}
+                      onPress={() => handleScroll(activeIndex - 1)}
+                    >
+                      <Ionicons name="chevron-back" size={24} color="#fff" />
+                    </TouchableOpacity>
+                  )}
+                  {activeIndex < item.images!.length - 1 && (
+                    <TouchableOpacity
+                      style={[styles.arrowButton, styles.rightArrow]}
+                      onPress={() => handleScroll(activeIndex + 1)}
+                    >
+                      <Ionicons name="chevron-forward" size={24} color="#fff" />
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </>
           ) : (
-            <View style={styles.noImageContainer}>
-              <Ionicons name="image-outline" size={48} color="#ccc" />
-              <Text style={styles.noImageText}>이미지 없음</Text>
+            <View
+              style={{
+                width: width,
+                height: IMAGE_HEIGHT,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#f8f9fa",
+              }}
+            >
+              <Ionicons name="image-outline" size={64} color="#ddd" />
+              <Text style={styles.noImageText}>이미지가 없습니다</Text>
             </View>
           )}
+
+          <TouchableOpacity
+            style={styles.headerBackButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
 
-        {/* 상세 정보 영역 */}
-        <View style={styles.infoSection}>
-          <View style={styles.userInfoRow}>
-            {/* 유저 프로필 이미지 등은 없으므로 기본 아이콘이나 이름만 표시 */}
-            <View style={styles.profileIcon}>
-              <Ionicons name="person" size={20} color="#fff" />
+        {/* User Profile Section */}
+        <View style={styles.profileSection}>
+          <View style={styles.profileRow}>
+            <View style={styles.avatar}>
+              <Ionicons name="person" size={24} color="#ccc" />
             </View>
-            <View>
-              <Text style={styles.username}>판매자 (ID: {item.user_id})</Text>
-              <Text style={styles.userAddr}>
+            <View style={styles.profileInfo}>
+              <Text style={styles.sellerName}>판매자 (ID: {item.user_id})</Text>
+              <Text style={styles.locationText}>
                 {item.user_addr || "위치 정보 없음"}
               </Text>
             </View>
           </View>
+          {/* 매너온도 같은 것을 여기에 추가하면 더 프리미엄 해보임 */}
+        </View>
 
-          <View style={styles.divider} />
+        <View style={styles.divider} />
 
+        {/* Content Section */}
+        <View style={styles.contentSection}>
           <Text style={styles.title}>{item.title}</Text>
           <Text style={styles.category}>
-            {item.category_name || "카테고리 없음"}
+            {item.category_name || "기타"} •{" "}
+            {item.created_at
+              ? new Date(item.created_at).toLocaleDateString()
+              : ""}
           </Text>
-          <Text style={styles.price}>{formattedPrice}</Text>
 
-          <View style={styles.divider} />
+          <Text style={styles.description}>{item.content}</Text>
 
-          <Text style={styles.contentLabel}>상품 설명</Text>
-          <Text style={styles.content}>{item.content}</Text>
-
-          <View style={styles.divider} />
-
-          {/* 추가 정보 (위치 등) */}
-          <View style={styles.metaRow}>
-            <Ionicons name="location-outline" size={16} color="#666" />
+          <View style={styles.metaInfo}>
+            <Ionicons name="location-sharp" size={16} color="#868e96" />
             <Text style={styles.metaText}>{item.addr || "거래 장소 미정"}</Text>
-          </View>
-          <View style={[styles.metaRow, { marginTop: 4 }]}>
-            <Ionicons name="time-outline" size={16} color="#666" />
-            <Text style={styles.metaText}>
-              {item.created_at
-                ? new Date(item.created_at).toLocaleString()
-                : ""}
-            </Text>
           </View>
         </View>
       </ScrollView>
 
-      {/* 하단 구매/채팅 버튼 영역 */}
+      {/* Bottom Action Bar */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.heartButton}>
-          <Ionicons name="heart-outline" size={24} color="#666" />
-        </TouchableOpacity>
-        <View style={styles.priceContainer}>
-          <Text style={styles.bottomPrice}>{formattedPrice}</Text>
+        <View style={styles.bottomBarContent}>
+          <TouchableOpacity style={styles.wishButton}>
+            <Ionicons name="heart-outline" size={24} color="#868e96" />
+            {/* <Text style={styles.wishCount}>0</Text> 숫자 추가 가능 */}
+          </TouchableOpacity>
+
+          <View style={styles.verticalLine} />
+
+          <View style={styles.priceArea}>
+            <Text style={styles.priceText}>{formattedPrice}</Text>
+          </View>
+
+          {userInfo?.id === item.user_id ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.editButton]}
+              onPress={() => {
+                router.push({
+                  pathname: "/UploadItem",
+                  params: { itemId: item.item_id },
+                });
+              }}
+            >
+              <Text style={[styles.actionButtonText, styles.editButtonText]}>
+                게시글 수정
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.actionButton}>
+              <Text style={styles.actionButtonText}>채팅하기</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        {userInfo?.id === item.user_id ? (
-          <TouchableOpacity
-            style={styles.chatButton}
-            onPress={() => {
-              router.push({
-                pathname: "/UploadItem",
-                params: { itemId: item.item_id },
-              });
-            }}
-          >
-            <Text style={styles.chatButtonText}>수정하기</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.chatButton}>
-            <Text style={styles.chatButtonText}>거래예약</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
@@ -205,153 +308,222 @@ export default function Detail() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 80, // 하단 바 높이만큼 여백
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  errorText: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 16,
-  },
-  backButton: {
-    padding: 10,
-    backgroundColor: "#eee",
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: "#333",
-  },
-
-  // 이미지
-  imageContainer: {
-    width: "100%",
-    height: width, // 1:1 비율
-    backgroundColor: "#f0f0f0",
-  },
-  itemImage: {
-    width: "100%",
-    height: "100%",
-  },
-  noImageContainer: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  noImageText: {
-    color: "#999",
-    marginTop: 8,
-  },
-
-  // 정보 섹션
-  infoSection: {
-    padding: 20,
-  },
-  userInfoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  profileIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#ddd",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  username: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-  },
-  userAddr: {
-    fontSize: 12,
-    color: "#666",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#eee",
-    marginVertical: 16,
-  },
-
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 8,
-  },
-  category: {
-    fontSize: 14,
-    color: "#888",
-    marginBottom: 8,
-  },
-  price: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  contentLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: "#333",
-  },
-  content: {
-    fontSize: 16,
-    color: "#333",
-    lineHeight: 24,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 14,
-    color: "#666",
-  },
-
-  // 하단 바
-  bottomBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
     backgroundColor: "#fff",
   },
-  heartButton: {
-    padding: 10,
-    marginRight: 10,
-  },
-  priceContainer: {
+  loadingContainer: {
     flex: 1,
-    paddingLeft: 10,
-    borderLeftWidth: 1,
-    borderLeftColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
   },
-  bottomPrice: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#fff",
   },
-  chatButton: {
-    backgroundColor: "#FF8C00", // 당근마켓 주황색 계열
+  errorText: {
+    marginTop: 12,
+    marginBottom: 20,
+    fontSize: 16,
+    color: "#666",
+  },
+  backButton: {
+    backgroundColor: "#f1f3f5",
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
   },
-  chatButtonText: {
-    color: "#fff",
-    fontSize: 16,
+  backButtonText: {
+    color: "#495057",
     fontWeight: "600",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100, // Bottom bar height clearance
+  },
+
+  // Carousel Styles
+  // Moved to inline styles or dynamic styles due to useWindowDimensions usage
+
+  noImageText: {
+    marginTop: 10,
+    color: "#adb5bd",
+    fontSize: 16,
+  },
+  headerBackButton: {
+    position: "absolute",
+    top: Platform.OS === "android" ? 40 : 50,
+    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  paginationBadge: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  paginationText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  arrowButton: {
+    position: "absolute",
+    top: "50%",
+    marginTop: -20, // half of height
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 5,
+  },
+  leftArrow: {
+    left: 15,
+  },
+  rightArrow: {
+    right: 15,
+  },
+
+  // Profile Section
+  profileSection: {
+    padding: 20,
+    backgroundColor: "#fff",
+  },
+  profileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#f1f3f5",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  profileInfo: {
+    justifyContent: "center",
+  },
+  sellerName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#212529",
+    marginBottom: 2,
+  },
+  locationText: {
+    fontSize: 13,
+    color: "#868e96",
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: "#e9ecef",
+    marginHorizontal: 16,
+  },
+
+  // Content Section
+  contentSection: {
+    padding: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#212529",
+    marginBottom: 8,
+    lineHeight: 30,
+  },
+  category: {
+    fontSize: 13,
+    color: "#868e96",
+    marginBottom: 24,
+  },
+  description: {
+    fontSize: 16,
+    lineHeight: 26,
+    color: "#343a40",
+    marginBottom: 30,
+  },
+  metaInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  metaText: {
+    fontSize: 13,
+    color: "#868e96",
+    marginLeft: 6,
+  },
+
+  // Bottom Bar
+  bottomBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#e9ecef",
+    paddingBottom: Platform.OS === "ios" ? 20 : 0,
+    elevation: 10, // Shadow for Android
+    shadowColor: "#000", // Shadow for iOS
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+  },
+  bottomBarContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16, // 높이감 확보
+  },
+  wishButton: {
+    padding: 4,
+  },
+  verticalLine: {
+    width: 1,
+    height: 24,
+    backgroundColor: "#dee2e6",
+    marginHorizontal: 16,
+  },
+  priceArea: {
+    flex: 1,
+  },
+  priceText: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#212529",
+  },
+  actionButton: {
+    backgroundColor: "#FF6F0F", // Carrot Market Orange
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  editButton: {
+    backgroundColor: "#f1f3f5",
+  },
+  editButtonText: {
+    color: "#212529",
+  },
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#fff",
   },
 });

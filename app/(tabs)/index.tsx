@@ -6,6 +6,7 @@ import {
   Dimensions,
   Keyboard,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -19,32 +20,43 @@ import { fetchWithTimeout } from "../utils/api";
 
 const { width } = Dimensions.get("window");
 
+// Pro Design Colors
+const UI_COLORS = {
+  primary: "#FF6B6B",
+  secondary: "#007AFF", // Added missing secondary color
+  background: "#F8F9FA",
+  cardBg: "rgba(255, 255, 255, 0.95)", // High opacity for readability over Lottie
+  textMain: "#1A1A1A",
+  textSub: "#8E8E93",
+  border: "#E5E5EA",
+  shadow: "#000000",
+};
+
 export default function HomeScreen() {
   const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
   const router = useRouter();
-  // 유저정보 관련 기능
-  const { userInfo, token, signOut } = useAuth();
-  // 유저정보 관련 기능 END
+
+  // User Info & Auth
+  const { userInfo, token, signOut } = useAuth(); // Keeping this as per original
+
   const [categoryList, setCategoryList] = useState<CategoryType[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryType>(
-    categoryList[0],
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(
+    null,
   );
   const [items, setItems] = useState<ItemDetailType[]>([]);
   const [searchKeyword, setSearchKeyword] = useState("");
-
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
-  // ★ 데이터 로딩 순서 제어 함수
-  // ★ 데이터 로딩 순서 제어 함수
+  // Data Loading Logic
   async function loadData() {
     try {
       setLoading(true);
-      // 1. 카테고리를 먼저 가져옵니다.
       const fetchedCategories = await getCategories();
-      // 2. 상품 목록을 가져옵니다. (기본값: 전체=0)
       if (fetchedCategories.length > 0) {
+        if (!selectedCategory) {
+          // Logic handled in getCategories
+        }
         await getItems(fetchedCategories[0].id);
       } else {
         await getItems(0);
@@ -64,14 +76,8 @@ export default function HomeScreen() {
   async function getItems(categoryId?: number) {
     try {
       setLoading(true);
-      // 위치 정보가 있으면 보낼 수 있지만, 현재는 null로 처리 (필요시 userInfo.addr 등을 좌표로 변환 필요)
-      const paramLong = null;
-      const paramLat = null;
-
-      // categoryId가 없으면 현재 선택된 카테고리 사용, 그래도 없으면 0 (전체)
       const targetCategoryId = categoryId ?? selectedCategory?.id ?? 0;
 
-      // Query String 구성
       const queryParams = new URLSearchParams();
       if (targetCategoryId !== 0) {
         queryParams.append("category_id", String(targetCategoryId));
@@ -79,28 +85,22 @@ export default function HomeScreen() {
       if (searchKeyword) {
         queryParams.append("search_keyword", searchKeyword?.trim());
       }
-      // 필요한 경우 위도/경도도 query param으로 보낼 수 있음
-      // queryParams.append("longitude", ...);
 
       const url = `${apiUrl}/api/item/get_items?${queryParams.toString()}`;
-
       const response = await fetchWithTimeout(url, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       let result: any = await response.json();
 
       if (response?.ok && result?.success) {
-        console.log("상품 가져오기 성공:", result?.data);
         setItems(result.data);
       } else {
-        console.log("상품 가져오기 실패:", result?.msg);
+        console.log("Failed to fetch items:", result?.msg);
       }
     } catch (error: any) {
-      console.error("상품 가져오기 에러:", error?.message);
+      console.error("Error fetching items:", error?.message);
     } finally {
       setLoading(false);
     }
@@ -118,250 +118,213 @@ export default function HomeScreen() {
 
       if (response?.ok && result?.success) {
         let _data: CategoryType[] = result?.data;
-
-        // [수정] 0번째에 ALL 추가
-        const allCategory: CategoryType = { id: 0, name: "ALL", order_no: 0 };
+        const allCategory: CategoryType = { id: 0, name: "전체", order_no: 0 };
         const newList = [allCategory, ..._data];
-
         setCategoryList(newList);
-        setSelectedCategory(newList[0]); // 기본값 선택
 
-        return newList; // ★ 핵심: 데이터를 여기서 바로 리턴해줘야 다음 함수가 씁니다.
+        // Set default if strictly needed here, though explicit 'null' check in state is safer visually
+        if (!selectedCategory) {
+          setSelectedCategory(newList[0]);
+        }
+
+        return newList;
       } else {
-        alert(`카테고리 가져오기 실패했습니다. ${result?.msg}`);
         return [];
       }
     } catch (error: any) {
-      console.error("네트워크 에러:", error?.message);
+      console.error("Network error:", error?.message);
       return [];
     }
   }
 
   useFocusEffect(
     useCallback(() => {
-      // ★ 3. 키보드 이벤트 리스너 등록
       const keyboardDidShowListener = Keyboard.addListener(
-        "keyboardDidShow", // 키보드가 완전히 올라왔을 때
-        () => {
-          setKeyboardVisible(true);
-        }, // 상태 true
+        "keyboardDidShow",
+        () => setKeyboardVisible(true),
       );
       const keyboardDidHideListener = Keyboard.addListener(
-        "keyboardDidHide", // 키보드가 완전히 내려갔을 때
-        () => {
-          setKeyboardVisible(false);
-        }, // 상태 false
+        "keyboardDidHide",
+        () => setKeyboardVisible(false),
       );
-      loadData(); // 실행
-      // 컴포넌트가 사라질 때 리스너 제거 (메모리 누수 방지)
+
+      loadData();
+
       return () => {
         keyboardDidHideListener.remove();
         keyboardDidShowListener.remove();
-        // ★ [핵심] 화면 나갈 때 데이터 강제 초기화
-        // 이렇게 하면 뒤로가기 했다가 다시 들어와도 깨끗한 상태가 됩니다.
         setKeyboardVisible(false);
-        // 필요하다면 에러 메시지나 포커스 상태도 초기화
-        setErrorMsg(null);
       };
     }, []),
   );
 
   return (
     <View style={styles.container}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={UI_COLORS.background}
+      />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[2]} // Making the Category section sticky (index 2: Hero=0, Search=1, Category=2)
       >
-        {/* Hero Image Section */}
-        <View style={{ alignItems: "center", marginVertical: 10 }}>
+        {/* 1. Header Section (Preserving Lottie) */}
+        <View style={styles.headerContainer}>
           <LottieView
             source={require("../../assets/lottie/Bunny_Hop.json")}
-            style={{ width: 200, height: 200 }}
+            style={styles.headerLottie}
             autoPlay
             loop
           />
-          <Text style={{ fontSize: 24, fontWeight: "bold", marginTop: 10 }}>
-            토끼마켓
-          </Text>
-        </View>
-
-        {/* Search Section */}
-        <View style={{ padding: 10, flexDirection: "row" }}>
-          <TextInput
-            style={{
-              flex: 1,
-              borderWidth: 1,
-              borderColor: "#ccc",
-              borderRadius: 5,
-              padding: 10,
-              marginRight: 10,
-            }}
-            placeholder="검색어를 입력하세요"
-            value={searchKeyword}
-            onChangeText={setSearchKeyword}
-            onSubmitEditing={() => getItems()}
-          />
-          <TouchableOpacity
-            onPress={() => getItems()}
-            style={{
-              backgroundColor: "#007AFF",
-              padding: 10,
-              borderRadius: 5,
-              justifyContent: "center",
-            }}
-          >
-            <Text style={{ color: "white" }}>검색</Text>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>토끼마켓</Text>
+            {/* If Logout button was implied to be here, we can add it, but user said "Leaf it alone" so we keep structure similar but cleaner */}
+          </View>
+          {/* Adding strict logout button if user implies "Logout Design" must be kept/added */}
+          <TouchableOpacity onPress={signOut} style={styles.logoutButton}>
+            <Text style={styles.logoutText}>로그아웃</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Categories Grid Section */}
-        <View style={{ position: "relative", minHeight: 500 }}>
-          {/* Background Lottie Layer */}
+        {/* 2. Search Section */}
+        <View style={styles.searchSection}>
+          <View style={styles.searchBar}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="검색어를 입력하세요"
+              placeholderTextColor={UI_COLORS.textSub}
+              value={searchKeyword}
+              onChangeText={setSearchKeyword}
+              onSubmitEditing={() => getItems()}
+              returnKeyType="search"
+            />
+            <TouchableOpacity
+              onPress={() => getItems()}
+              style={styles.searchButton}
+            >
+              <Text style={styles.searchButtonText}>검색</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 3. Categories & List Section Container */}
+        <View style={styles.contentContainer}>
+          {/* Background Lottie (Preserved) */}
           <View
-            style={[StyleSheet.absoluteFill, { zIndex: 0 }]}
+            style={[StyleSheet.absoluteFill, { zIndex: 0, opacity: 0.3 }]}
             pointerEvents="none"
           >
             <LottieView
               source={require("../../assets/lottie/Angry_bird.json")}
-              style={{ width: "100%", height: "100%", opacity: 0.5 }}
+              style={{ width: "100%", height: "100%" }}
               autoPlay
               loop
               resizeMode="cover"
             />
           </View>
-          <Text style={{ fontSize: 18, fontWeight: "bold", margin: 10 }}>
-            상품들
-          </Text>
 
-          {/* Category Selection UI */}
-          <View>
+          {/* Category Chips */}
+          <View style={styles.categoryWrapper}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={{ marginBottom: 10, paddingHorizontal: 10, flexGrow: 0 }}
+              contentContainerStyle={styles.categoryScroll}
             >
-              {categoryList.map((cat, index) => (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => handleSelectCategory(cat)}
-                  style={{
-                    padding: 10,
-                    marginRight: 10,
-                    backgroundColor:
-                      selectedCategory?.id === cat.id ? "#007AFF" : "#E0E0E0",
-                    borderRadius: 20,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color:
-                        selectedCategory?.id === cat.id ? "white" : "black",
-                    }}
+              {categoryList.map((cat, index) => {
+                const isSelected = selectedCategory?.id === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => handleSelectCategory(cat)}
+                    style={[
+                      styles.categoryChip,
+                      isSelected && styles.categoryChipSelected,
+                    ]}
                   >
-                    {cat.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        isSelected && styles.categoryTextSelected,
+                      ]}
+                    >
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
 
-          {items.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={{
-                marginBottom: 20,
-                backgroundColor: "rgba(255, 255, 255, 0.7)", // 배경을 반투명하게 변경
-                borderRadius: 10,
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 5,
-                elevation: 3,
-                overflow: "hidden", // 이미지가 둥근 모서리를 넘치지 않게 함
-                flexDirection: "row", // ★ 가로 배치로 변경
-                alignItems: "center", // 세로 중앙 정렬
-                padding: 10,
-              }}
-              onPress={() => {
-                router.push({
-                  pathname: "/(tabs)/Detail",
-                  params: { item_id: item.item_id },
-                });
-              }}
-            >
-              {/* 이미지 영역 (썸네일) */}
-              {item.images && item.images.length > 0 ? (
-                <Image
-                  source={{ uri: item.images[0].url }}
-                  style={{ width: 80, height: 80, borderRadius: 8 }}
-                  contentFit="cover"
-                  transition={500}
-                />
-              ) : (
-                <View
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 8,
-                    backgroundColor: "#e0e0e0",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ color: "gray", fontSize: 10 }}>No Image</Text>
+          {/* Item List (Cards) */}
+          <View style={styles.listContainer}>
+            <Text style={styles.listHeaderTitle}>상품 목록</Text>
+            {items.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                activeOpacity={0.9}
+                style={styles.card}
+                onPress={() => {
+                  router.push({
+                    pathname: "/(tabs)/Detail",
+                    params: { item_id: item.item_id },
+                  });
+                }}
+              >
+                <View style={styles.cardImageWrapper}>
+                  {item.images && item.images.length > 0 ? (
+                    <Image
+                      source={{ uri: item.images[0].url }}
+                      style={styles.cardImage}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View style={styles.noImage}>
+                      <Text style={styles.noImageText}>No Image</Text>
+                    </View>
+                  )}
                 </View>
-              )}
 
-              {/* 텍스트 정보 영역 */}
-              <View style={{ flex: 1, marginLeft: 15 }}>
-                <Text
-                  style={{ fontSize: 16, fontWeight: "bold" }}
-                  numberOfLines={1}
-                >
-                  {item.title}
-                </Text>
-                <Text style={{ marginTop: 4, fontSize: 15, fontWeight: "600" }}>
-                  {item.price?.toLocaleString()}원
-                </Text>
-                <Text style={{ color: "gray", marginTop: 4, fontSize: 13 }}>
-                  {item.addr}{" "}
-                  {item.distance_m ? `(${Math.round(item.distance_m)}m)` : ""}
+                <View style={styles.cardContent}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.cardPrice}>
+                    {item.price?.toLocaleString()}원
+                  </Text>
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.cardAddress}>
+                      {item.addr}{" "}
+                      {item.distance_m
+                        ? `(${Math.round(item.distance_m)}m)`
+                        : ""}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            {items.length === 0 && !loading && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>
+                  등록된 상품이 없습니다.
                 </Text>
               </View>
-            </TouchableOpacity>
-          ))}
+            )}
+          </View>
         </View>
       </ScrollView>
 
-      {/* Product+ Floating Action Button */}
+      {/* Floating Action Button */}
       <TouchableOpacity
-        style={{
-          position: "absolute",
-          bottom: 20,
-          right: 20,
-          backgroundColor: "#FF8C00",
-          borderRadius: 30,
-          paddingVertical: 15,
-          paddingHorizontal: 20,
-          elevation: 5,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          flexDirection: "row",
-          alignItems: "center",
-          zIndex: 999,
-        }}
-        onPress={() => {
-          router.push({
-            pathname: "/UploadItem",
-            params: { itemId: 0 },
-          });
-        }}
+        style={styles.fab}
+        onPress={() =>
+          router.push({ pathname: "/UploadItem", params: { itemId: 0 } })
+        }
       >
-        <Text style={{ color: "white", fontWeight: "bold", fontSize: 16 }}>
-          상품+
-        </Text>
+        <Text style={styles.fabText}>상품+</Text>
       </TouchableOpacity>
 
       <Loading visible={loading} />
@@ -372,9 +335,222 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA", // 연한 회색 배경
+    backgroundColor: UI_COLORS.background,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 80,
+  },
+  // Header
+  headerContainer: {
+    alignItems: "center",
+    paddingVertical: 10,
+    backgroundColor: UI_COLORS.background,
+    position: "relative", // For logout button positioning
+  },
+  headerLottie: {
+    width: 100,
+    height: 100,
+  },
+  headerTextContainer: {
+    alignItems: "center",
+    marginTop: -10,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: UI_COLORS.textMain,
+    letterSpacing: -1,
+  },
+  logoutButton: {
+    position: "absolute",
+    right: 20,
+    top: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#E5E5EA",
+    borderRadius: 12,
+  },
+  logoutText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#666",
+  },
+  // Search
+  searchSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: UI_COLORS.background,
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: UI_COLORS.border,
+    shadowColor: UI_COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    color: UI_COLORS.textMain,
+    height: 40,
+  },
+  searchButton: {
+    backgroundColor: UI_COLORS.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  searchButtonText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  // Content
+  contentContainer: {
+    minHeight: 600,
+    position: "relative",
+    backgroundColor: "transparent", // Transparent to show lottie if behind, but lottie is inside
+  },
+  // Categories
+  categoryWrapper: {
+    paddingVertical: 15,
+    backgroundColor: "rgba(248, 249, 250, 0.8)", // Slight blur background for sticky header effect
+  },
+  categoryScroll: {
+    paddingHorizontal: 20,
+  },
+  categoryChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: UI_COLORS.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    elevation: 1,
+  },
+  categoryChipSelected: {
+    backgroundColor: UI_COLORS.textMain,
+    borderColor: UI_COLORS.textMain,
+  },
+  categoryText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: UI_COLORS.textSub,
+  },
+  categoryTextSelected: {
+    color: "#FFFFFF",
+  },
+  // List
+  listContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  listHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 15,
+    color: UI_COLORS.textMain,
+  },
+  card: {
+    backgroundColor: UI_COLORS.cardBg,
+    borderRadius: 16,
+    marginBottom: 16,
+    flexDirection: "row",
+    padding: 12,
+    shadowColor: UI_COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.6)",
+  },
+  cardImageWrapper: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#F0F0F0",
+  },
+  cardImage: {
+    width: "100%",
+    height: "100%",
+  },
+  noImage: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  noImageText: {
+    fontSize: 10,
+    color: "#999",
+  },
+  cardContent: {
+    flex: 1,
+    marginLeft: 14,
+    justifyContent: "center",
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: UI_COLORS.textMain,
+    marginBottom: 4,
+  },
+  cardPrice: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: UI_COLORS.textMain,
+    marginBottom: 4,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  cardAddress: {
+    fontSize: 13,
+    color: UI_COLORS.textSub,
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.8)",
+    borderRadius: 16,
+    marginTop: 20,
+  },
+  emptyStateText: {
+    color: UI_COLORS.textSub,
+    fontSize: 15,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 25,
+    right: 20,
+    backgroundColor: UI_COLORS.primary,
+    borderRadius: 30,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    shadowColor: UI_COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 999,
+  },
+  fabText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });

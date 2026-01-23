@@ -1,8 +1,9 @@
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-  Button,
+  ActivityIndicator,
   Dimensions,
   Image,
   Keyboard,
@@ -23,47 +24,56 @@ import { fetchWithTimeout } from "../utils/api";
 
 const { width } = Dimensions.get("window");
 
+// Pro Design Colors (Matched with Index.tsx)
+const UI_COLORS = {
+  primary: "#FF6B6B",
+  secondary: "#007AFF",
+  background: "#F8F9FA",
+  cardBg: "#FFFFFF",
+  textMain: "#1A1A1A",
+  textSub: "#8E8E93",
+  border: "#E5E5EA",
+  inputBg: "#F2F2F7",
+  danger: "#FF3B30",
+};
+
 export default function UploadItem() {
   const router = useRouter();
   const { userInfo, token, signOut } = useAuth();
 
   const apiUrl = process.env.EXPO_PUBLIC_HONO_API_BASEURL;
-  const kakaoRestapiKey = process.env.EXPO_PUBLIC_KAKAO_RESTAPI_KEY;
   const queryString = useLocalSearchParams();
   const itemId = Number(queryString?.itemId || 0);
   const MAX_IMAGES = 5;
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // ★ 2. 키보드가 보이는지 여부를 저장할 state 추가
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [categoryList, setCategoryList] = useState<CategoryType[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryType>(
-    categoryList[0],
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(
+    null,
   );
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [content, setContent] = useState("");
   const [isFocus, setIsFocus] = useState(false);
-  // 이미지 URI들을 담을 배열이므로 string[] 타입을 명시
   const [images, setImages] = useState<string[]>([]);
 
-  // 반환 타입을 Promise<CategoryType[]>로 지정
+  // --- Logic Functions ---
+
   async function getCategories(): Promise<CategoryType[]> {
     try {
       const response = await fetchWithTimeout(
         `${apiUrl}/api/item/get_categories`,
-        {
-          method: "GET",
-        },
+        { method: "GET" },
       );
       let result: any = await response.json();
 
       if (response?.ok && result?.success) {
         let _data: CategoryType[] = result?.data;
         setCategoryList(_data);
-        return _data; // ★ 핵심: 데이터를 여기서 바로 리턴해줘야 다음 함수가 씁니다.
+        return _data;
       } else {
         alert(`카테고리 가져오기 실패했습니다. ${result?.msg}`);
         return [];
@@ -73,9 +83,9 @@ export default function UploadItem() {
       return [];
     }
   }
-  // 인자로 currentCategories를 받습니다.
+
   async function getItem(currentCategories: CategoryType[]) {
-    if (!itemId) return; // itemId가 0이거나 없으면 중단 (필요 시 로직 조정)
+    if (!itemId) return;
 
     try {
       const params = new URLSearchParams();
@@ -93,12 +103,10 @@ export default function UploadItem() {
       if (response?.ok && result?.success) {
         let _data: ItemDetailType = result?.data;
 
-        // 1. 텍스트 세팅
         setTitle(_data.title || "");
         setContent(_data.content || "");
         setPrice(String(_data.price || ""));
 
-        // ★ 2. 카테고리 세팅 (인자로 받은 리스트에서 찾기)
         if (currentCategories && currentCategories.length > 0) {
           const targetCategory = currentCategories.find(
             (c) => c.id === _data.category_id,
@@ -108,7 +116,6 @@ export default function UploadItem() {
           }
         }
 
-        // 3. 이미지 세팅
         if (_data.images && _data.images.length > 0) {
           const serverImageUrls = _data.images.map((img) => img.url);
           setImages(serverImageUrls);
@@ -121,27 +128,22 @@ export default function UploadItem() {
     }
   }
 
-  // ★ 데이터 로딩 순서 제어 함수
   async function loadData() {
     try {
       setLoading(true);
-      // 1. 카테고리를 먼저 가져옵니다.
       const fetchedCategories = await getCategories();
 
-      // 2. 상황에 따라 분기 처리
-      // itemId가 0이거나 유효하지 않으면 '신규 등록' 모드
       if (!itemId || itemId === 0) {
-        // 신규 등록: 첫 번째 카테고리 자동 선택
+        // New Item
         if (fetchedCategories.length > 0) {
           setSelectedCategory(fetchedCategories[0]);
         }
-        // 신규 등록이므로 제목/내용 등 초기화 필요하면 여기서 수행
         setTitle("");
         setContent("");
         setPrice("");
         setImages([]);
       } else {
-        // 수정 모드: getItem 실행 (방금 가져온 카테고리 목록을 넘겨줌)
+        // Edit Item
         await getItem(fetchedCategories);
       }
     } catch (err) {
@@ -153,32 +155,23 @@ export default function UploadItem() {
 
   useFocusEffect(
     useCallback(() => {
-      // ★ 3. 키보드 이벤트 리스너 등록
       const keyboardDidShowListener = Keyboard.addListener(
-        "keyboardDidShow", // 키보드가 완전히 올라왔을 때
-        () => {
-          setKeyboardVisible(true);
-        }, // 상태 true
+        "keyboardDidShow",
+        () => setKeyboardVisible(true),
       );
       const keyboardDidHideListener = Keyboard.addListener(
-        "keyboardDidHide", // 키보드가 완전히 내려갔을 때
-        () => {
-          setKeyboardVisible(false);
-        }, // 상태 false
+        "keyboardDidHide",
+        () => setKeyboardVisible(false),
       );
-      loadData(); // 실행
-      // 컴포넌트가 사라질 때 리스너 제거 (메모리 누수 방지)
+      loadData();
       return () => {
         keyboardDidHideListener.remove();
         keyboardDidShowListener.remove();
-        // ★ [핵심] 화면 나갈 때 데이터 강제 초기화
-        // 이렇게 하면 뒤로가기 했다가 다시 들어와도 깨끗한 상태가 됩니다.
         setTitle("");
         setContent("");
         setPrice("");
         setImages([]);
         setKeyboardVisible(false);
-        // 필요하다면 에러 메시지나 포커스 상태도 초기화
         setErrorMsg(null);
         setIsFocus(false);
       };
@@ -186,243 +179,269 @@ export default function UploadItem() {
   );
 
   async function onUploadItem() {
+    if (!title.trim()) {
+      alert("제목을 입력해주세요.");
+      return;
+    }
+    if (!price.trim()) {
+      alert("가격을 입력해주세요.");
+      return;
+    }
+    if (!content.trim()) {
+      alert("내용을 입력해주세요.");
+      return;
+    }
+
     const API_URL = `${apiUrl}/api/item/upsert_item`;
 
     try {
       setLoading(true);
-      // 1. FormData 객체 생성 및 데이터 추가
       const formData = new FormData();
 
-      // 숫자형 데이터도 전송 안정을 위해 문자열로 변환하여 보내는 것이 좋습니다.
       formData.append("category_id", String(selectedCategory?.id || 0));
       formData.append("item_id", String(itemId));
       formData.append("title", title);
       formData.append("content", content);
       formData.append("price", String(price));
 
-      // ★★★ [핵심] 이미지 처리 부분 ★★★
-      // images State(문자열 배열)를 순회하며 FormData 형식 객체로 변환해 추가
       for (const [index, imageUri] of images.entries()) {
         try {
-          // (1) 로컬 이미지를 fetch로 읽어서 바이너리(Blob)로 변환
-          // Expo/RN에서 file:// 경로를 fetch하면 로컬 파일을 읽을 수 있습니다.
+          // If it's a remote URL (already uploaded), we might need to handle it differently
+          // dependent on backend. Assuming backend handles "new files" largely.
+          // If URI doesn't start with 'file://', it's likely an existing server URL.
+          // Usually we don't re-upload server URLs.
+          // logic check: current logic blindly fetches.
+          // If it fetches a server URL, it gets the blob and re-uploads?
+          // That works but is inefficient. For now, keeping original logic for safety.
+
           const response = await fetch(imageUri);
           const blob = await response.blob();
-
-          // (2) 파일명 만들기
           const fileName = imageUri.split("/").pop() || `upload_${index}.jpg`;
-
-          // (3) FormData에 Blob 직접 추가
-          // 3번째 인자로 파일명을 넣어주면 서버가 정확히 인식합니다.
           formData.append("files", blob, fileName);
         } catch (err) {
           console.error(`이미지 변환 실패 (${index}):`, err);
         }
       }
 
-      // 2. Fetch API 호출
       const response = await fetchWithTimeout(API_URL, {
         method: "POST",
         headers: {
-          // 주의: FormData 사용 시 'Content-Type': 'multipart/form-data'를
-          // 직접 작성하지 마세요. 자동으로 boundary가 설정되어야 합니다.
           Authorization: `${token}`,
-          // 만약 토큰 형식이 'Bearer eyJ...'라면 `Bearer ${userToken}`으로 변경하세요.
         },
         body: formData,
       });
 
-      // 3. 응답 처리
       const result = await response.json();
 
       if (response?.ok && result?.success) {
-        console.log("업로드 성공:", result);
-        alert("아이템이 저장되었습니다.");
+        alert("상품이 성공적으로 등록되었습니다.");
         router.replace("/");
       } else {
-        console.error("서버 에러:", result?.msg);
         alert(`저장에 실패했습니다. ${result?.msg}`);
       }
     } catch (error: any) {
-      console.error("네트워크 에러:", error?.message);
       alert(`서버와 연결할 수 없습니다. ${error?.message}`);
     } finally {
       setLoading(false);
     }
   }
 
-  // --- 사진 선택 로직 ---
   const pickImages = async (): Promise<void> => {
     if (images.length >= MAX_IMAGES) {
-      alert(`최대 사진은 ${MAX_IMAGES}개 까지만 됩니다.`);
+      alert(`사진은 최대 ${MAX_IMAGES}장까지 가능합니다.`);
       return;
     }
 
-    // ImagePicker 결과 타입: ImagePickerResult
-    let result: ImagePicker.ImagePickerResult =
-      await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"], // TS에서는 이늄 대신 문자열 배열도 허용되지만, 최신 버전 권장사항 따름
-        allowsMultipleSelection: true,
-        quality: 0.8,
-      });
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
 
     if (!result.canceled) {
-      // result.assets는 ImagePickerAsset[] 타입입니다.
-      const selectedAssets: ImagePicker.ImagePickerAsset[] = result.assets;
-      const currentCount: number = images.length;
-      const remainingSlots: number = MAX_IMAGES - currentCount;
+      const selectedAssets = result.assets;
+      const currentCount = images.length;
+      const remainingSlots = MAX_IMAGES - currentCount;
 
       if (selectedAssets.length > remainingSlots) {
-        const allowedImages: string[] = selectedAssets
+        const allowedImages = selectedAssets
           .slice(0, remainingSlots)
           .map((asset) => asset.uri);
-
         setImages((prev) => [...prev, ...allowedImages]);
-
-        alert(
-          `최대 사진은 ${MAX_IMAGES}개 까지만 됩니다.\n초과된 사진은 제외되었습니다.`,
-        );
+        alert(`최대 ${MAX_IMAGES}장까지 선택 가능하여 일부만 추가되었습니다.`);
       } else {
-        const newImages: string[] = selectedAssets.map((asset) => asset.uri);
+        const newImages = selectedAssets.map((asset) => asset.uri);
         setImages((prev) => [...prev, ...newImages]);
       }
     }
   };
-  // --- 사진 선택 로직 END---
 
-  // --- 사진 삭제 로직 ---
   const removeImage = (indexToRemove: number): void => {
     setImages((prev) => prev.filter((_, index) => index !== indexToRemove));
   };
-  // --- 사진 삭제 로직 END ---
+
+  // --- Render ---
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={100}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
     >
-      {/* 1. 부모 스크롤뷰에 nestedScrollEnabled 추가 */}
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 150 }} // 아까 말한 여백 꼭 유지하세요
-        nestedScrollEnabled={true} // ★ 이거 추가
-        keyboardDismissMode="on-drag" // 스크롤 시 키보드 내리기 (추천)
-      >
-        <View>
-          <Text>싱품업로드</Text>
-        </View>
-        <Text>
-          사진 등록 ({images.length}/{MAX_IMAGES})
-        </Text>
-        <View
-          style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 20 }}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.closeButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          {/* 사진 추가 버튼 */}
-          <TouchableOpacity
-            onPress={pickImages}
-            style={{
-              marginRight: 10,
-              borderWidth: 1,
-              padding: 10,
-              justifyContent: "center",
-            }}
+          <Ionicons name="close" size={28} color={UI_COLORS.textMain} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {itemId ? "상품 수정" : "내 물건 팔기"}
+        </Text>
+        <View style={{ width: 28 }} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        nestedScrollEnabled={true}
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 1. Image Section */}
+        <View style={styles.section}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.imageScrollContent}
           >
-            <Text>+ 사진추가</Text>
-          </TouchableOpacity>
+            {/* Add Button */}
+            <TouchableOpacity
+              onPress={pickImages}
+              style={styles.addImageButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="camera" size={24} color={UI_COLORS.textSub} />
+              <Text style={styles.addImageText}>
+                {images.length}/{MAX_IMAGES}
+              </Text>
+            </TouchableOpacity>
 
-          {/* 선택된 사진 미리보기 & 삭제 */}
-          {images.map((uri: string, index: number) => (
-            <View key={index} style={{ marginRight: 10, position: "relative" }}>
-              <Image
-                source={{ uri }}
-                style={{ width: 60, height: 60, backgroundColor: "#ddd" }}
-              />
-              <TouchableOpacity
-                onPress={() => removeImage(index)}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  right: 0,
-                  backgroundColor: "red",
+            {/* Images List */}
+            {images.map((uri, index) => (
+              <View key={index} style={styles.imageWrapper}>
+                <Image source={{ uri }} style={styles.imageThumbnail} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => removeImage(index)}
+                  hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+                >
+                  <Ionicons name="close" size={12} color="white" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* 2. Form Section */}
+        <View style={styles.formContainer}>
+          {/* Title Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>제목</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="글 제목"
+              placeholderTextColor={UI_COLORS.textSub}
+              value={title}
+              onChangeText={setTitle}
+            />
+          </View>
+
+          {/* Category Select */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>카테고리</Text>
+            <Dropdown
+              style={[
+                styles.dropdown,
+                isFocus && { borderColor: UI_COLORS.primary },
+              ]}
+              containerStyle={styles.dropdownContainer}
+              placeholderStyle={styles.placeholderStyle}
+              selectedTextStyle={styles.selectedTextStyle}
+              inputSearchStyle={styles.inputSearchStyle}
+              iconStyle={styles.iconStyle}
+              data={categoryList}
+              search
+              maxHeight={300}
+              labelField="name"
+              valueField="id"
+              placeholder={!isFocus ? "카테고리 선택" : "..."}
+              searchPlaceholder="검색..."
+              value={selectedCategory?.id}
+              onFocus={() => setIsFocus(true)}
+              onBlur={() => setIsFocus(false)}
+              onChange={(item) => {
+                setSelectedCategory(item);
+                setIsFocus(false);
+              }}
+            />
+          </View>
+
+          {/* Price Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>가격</Text>
+            <View style={styles.priceInputWrapper}>
+              <Text style={styles.currencySymbol}>₩</Text>
+              <TextInput
+                style={styles.priceInput}
+                placeholder="가격 입력 (선택사항)"
+                placeholderTextColor={UI_COLORS.textSub}
+                value={price}
+                keyboardType="number-pad"
+                onChangeText={(e) => {
+                  const numericValue = e.replace(/[^0-9]/g, "");
+                  setPrice(numericValue);
                 }}
-              >
-                <Text style={{ color: "white", fontWeight: "bold" }}> X </Text>
-              </TouchableOpacity>
+              />
             </View>
-          ))}
-        </View>
-        <View>
-          <Text>카테고리선택:</Text>
-          <Dropdown
-            style={[styles.dropdown, isFocus && { borderColor: "blue" }]} // 포커스 시 스타일 변경
-            placeholderStyle={styles.placeholderStyle}
-            selectedTextStyle={styles.selectedTextStyle}
-            inputSearchStyle={styles.inputSearchStyle}
-            iconStyle={styles.iconStyle}
-            data={categoryList}
-            search // 검색 기능 활성화 (필요 없으면 제거 가능)
-            maxHeight={300} // ★ 일정 크기 넘어가면 스크롤 되는 높이 설정
-            labelField="name" // ★ 화면에 보여질 필드명 (item.name)
-            valueField="id" // ★ 실제 값으로 쓸 필드명 (item.id)
-            placeholder={!isFocus ? "카테고리를 선택하세요" : "..."}
-            searchPlaceholder="검색..."
-            value={selectedCategory?.id} // 현재 선택된 값 (ID 기준)
-            onFocus={() => setIsFocus(true)}
-            onBlur={() => setIsFocus(false)}
-            onChange={(item) => {
-              setSelectedCategory(item); // 선택된 아이템 전체를 state에 저장
-              setIsFocus(false);
-            }}
-          />
-        </View>
-        <View>
-          <Text>제목:</Text>
-          <TextInput
-            value={title}
-            onChangeText={(e) => {
-              setTitle(e);
-            }}
-          />
-        </View>
-        <View>
-          <Text>가격:</Text>
-          <TextInput
-            value={price}
-            keyboardType="number-pad"
-            onChangeText={(e) => {
-              // 2. 숫자(0-9)가 아닌 모든 문자는 빈 문자열로 치환
-              const numericValue = e?.replace(/[^0-9]/g, "");
-              setPrice(numericValue);
-            }}
-          />
-        </View>
+          </View>
 
-        <View>
-          <Text>내용:</Text>
-          <TextInput
-            style={styles.textArea} // ★ 스타일 연결
-            value={content}
-            multiline={true}
-            placeholder="내요을 입력해 주세요"
-            scrollEnabled={true}
-            onChangeText={(e) => {
-              setContent(e);
-            }}
-          />
-        </View>
-
-        <View>
-          <Button
-            title="상품등록"
-            onPress={() => {
-              onUploadItem();
-            }}
-          />
+          {/* Content Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>설명</Text>
+            <TextInput
+              style={styles.textArea}
+              placeholder={`상품 설명을 입력해주세요.\n(가품 및 판매금지품목은 게시가 제한될 수 있어요.)`}
+              placeholderTextColor={UI_COLORS.textSub}
+              value={content}
+              multiline={true}
+              scrollEnabled={false} // Let the parent scroll view handle scrolling if needed, or set true based on content
+              onChangeText={setContent}
+            />
+          </View>
         </View>
       </ScrollView>
+
+      {/* Footer / Submit Button */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.submitButton, { opacity: loading ? 0.7 : 1 }]}
+          onPress={onUploadItem}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.submitButtonText}>
+              {itemId ? "수정 완료" : "작성 완료"}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <Loading
         visible={loading}
-        text={itemId ? "불러오는 중..." : "저장 중..."}
+        text={itemId ? "불러오는 중..." : "업로드 중..."}
       />
     </KeyboardAvoidingView>
   );
@@ -430,24 +449,126 @@ export default function UploadItem() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
     backgroundColor: "white",
-    flex: 1, // 전체 화면 사용 시
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: UI_COLORS.border,
+    backgroundColor: "white",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: UI_COLORS.textMain,
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  // Images
+  section: {
+    paddingVertical: 20,
+    borderBottomWidth: 8,
+    borderBottomColor: UI_COLORS.background, // Divider effect
+  },
+  imageScrollContent: {
+    paddingHorizontal: 20,
+  },
+  addImageButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: UI_COLORS.border,
+    borderStyle: "dashed", // Not always supported perfectly on Android, but usually works
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    backgroundColor: UI_COLORS.background,
+  },
+  addImageText: {
+    fontSize: 12,
+    color: UI_COLORS.textSub,
+    marginTop: 4,
+  },
+  imageWrapper: {
+    position: "relative",
+    marginRight: 12,
+  },
+  imageThumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: UI_COLORS.border,
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: UI_COLORS.textMain,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "white",
+  },
+  // Form
+  formContainer: {
+    padding: 20,
+  },
+  inputGroup: {
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: UI_COLORS.textMain,
+    marginBottom: 8,
+  },
+  textInput: {
+    fontSize: 16,
+    color: UI_COLORS.textMain,
+    borderBottomWidth: 1,
+    borderBottomColor: UI_COLORS.border,
+    paddingVertical: 8,
+  },
+  // Dropdown
   dropdown: {
     height: 50,
-    borderColor: "gray",
-    borderWidth: 0.5,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    backgroundColor: "white", // 배경색 지정
+    borderColor: UI_COLORS.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    backgroundColor: "white",
+  },
+  dropdownContainer: {
+    borderRadius: 12,
+    marginTop: 4,
+    borderColor: UI_COLORS.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   placeholderStyle: {
     fontSize: 16,
-    color: "gray",
+    color: UI_COLORS.textSub,
   },
   selectedTextStyle: {
     fontSize: 16,
+    color: UI_COLORS.textMain,
   },
   iconStyle: {
     width: 20,
@@ -456,14 +577,58 @@ const styles = StyleSheet.create({
   inputSearchStyle: {
     height: 40,
     fontSize: 16,
-  },
-  textArea: {
-    height: 250, // ★ 중요: 높이를 고정해야 키보드 위로 전체가 올라옵니다
-    borderColor: "gray",
-    borderWidth: 0.5,
     borderRadius: 8,
-    padding: 10,
-    textAlignVertical: "top", // 안드로이드에서 글자 위쪽 정렬
-    marginTop: 10,
+  },
+  // Price
+  priceInputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: UI_COLORS.border,
+    paddingVertical: 8,
+  },
+  currencySymbol: {
+    fontSize: 18,
+    color: UI_COLORS.textMain,
+    marginRight: 8,
+    fontWeight: "600",
+  },
+  priceInput: {
+    flex: 1,
+    fontSize: 18,
+    color: UI_COLORS.textMain,
+    fontWeight: "600",
+  },
+  // TextArea
+  textArea: {
+    fontSize: 16,
+    color: UI_COLORS.textMain,
+    textAlignVertical: "top",
+    minHeight: 150,
+    lineHeight: 24,
+  },
+  // Footer
+  footer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: UI_COLORS.border,
+    backgroundColor: "white",
+  },
+  submitButton: {
+    backgroundColor: UI_COLORS.primary,
+    borderRadius: 12,
+    height: 52,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: UI_COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  submitButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });
