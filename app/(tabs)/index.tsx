@@ -172,12 +172,6 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Section */}
-        <View>
-          <Text>{JSON.stringify(userInfo)}</Text>
-          <Text>{JSON.stringify(token)}</Text>
-        </View>
-
         {/* Hero Image Section */}
         <View style={{ alignItems: "center", marginVertical: 10 }}>
           <LottieView

@@ -2,7 +2,7 @@ export const fetchWithTimeout = async (
   resource: RequestInfo,
   options: RequestInit = {},
 ) => {
-  const { timeout = 10000 } = options as any; // 10 seconds default
+  const { timeout = 300000 } = options as any; // 5 minutes default
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);

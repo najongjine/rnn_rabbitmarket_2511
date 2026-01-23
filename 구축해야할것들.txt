@@ -1,12 +1,7 @@
-로딩,
-lottie,
+CSS
 gemini api를 이용한 상품 자동 작성,
 
-홈화면 {
-    
-    검색,
-    
-}
+
 
 EXPO_PUBLIC_KAKAO_RESTAPI_KEY="59498ffaa12716e02333174a9e4bac54"
 EXPO_PUBLIC_KAKAO_JAVASCRIPT_KEY="150e98e3bd883753e02d811c6dfa864c"
