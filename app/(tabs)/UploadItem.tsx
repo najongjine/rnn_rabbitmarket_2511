@@ -280,6 +280,31 @@ export default function UploadItem() {
     setImages((prev) => prev.filter((_, index) => index !== indexToRemove));
   };
 
+  const onAIAutoComplete = async () => {
+    if (images.length === 0) {
+      alert("AI 자동완성을 사용하려면 최소 1장의 사진이 필요합니다.");
+      return;
+    }
+
+    setLoading(true);
+    // TODO: Connect to actual AI API
+    setTimeout(() => {
+      setTitle("AI가 제안하는 상품 제목 예시");
+      setContent(
+        "이 곳에는 AI가 이미지 분석을 통해 생성한 상세 설명이 들어갑니다.\n\n- 상태: 좋음\n- 색상: 화면과 같음\n- 특징: AI가 감지한 주요 특징들",
+      );
+
+      // Auto-select a category if available
+      if (categoryList.length > 0) {
+        // Just picking the first one for demo purposes, or try to find one by name closest to prediction
+        setSelectedCategory(categoryList[0]);
+      }
+
+      setLoading(false);
+      alert("AI가 상품 정보를 생성했습니다! 내용을 확인해주세요.");
+    }, 2000);
+  };
+
   // --- Render ---
 
   return (
@@ -345,6 +370,21 @@ export default function UploadItem() {
 
         {/* 2. Form Section */}
         <View style={styles.formContainer}>
+          {/* AI Autocomplete Button */}
+          <TouchableOpacity
+            style={styles.aiButton}
+            onPress={onAIAutoComplete}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="sparkles"
+              size={20}
+              color="white"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.aiButtonText}>AI 상품정보 자동완성</Text>
+          </TouchableOpacity>
+
           {/* Title Input */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>제목</Text>
@@ -630,5 +670,25 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "700",
+  },
+  // AI Button
+  aiButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#9D50BB", // A nice purple for AI/Magic feel
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginBottom: 24,
+    shadowColor: "#9D50BB",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  aiButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
