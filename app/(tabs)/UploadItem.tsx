@@ -286,23 +286,60 @@ export default function UploadItem() {
       return;
     }
 
-    setLoading(true);
-    // TODO: Connect to actual AI API
-    setTimeout(() => {
-      setTitle("AI가 제안하는 상품 제목 예시");
-      setContent(
-        "이 곳에는 AI가 이미지 분석을 통해 생성한 상세 설명이 들어갑니다.\n\n- 상태: 좋음\n- 색상: 화면과 같음\n- 특징: AI가 감지한 주요 특징들",
+    try {
+      setLoading(true);
+
+      const formData = new FormData();
+      // Use the first image
+      const imageUri = images[0];
+
+      // Convert uri to blob for upload
+      const responseImg = await fetch(imageUri);
+      const blob = await responseImg.blob();
+      // Extract filename from URI
+      const fileName = imageUri.split("/").pop() || "ai_image.jpg";
+
+      // Append matching the server's expected field name "files"
+      formData.append("files", blob, fileName);
+
+      // Call the AI endpoint
+      const response = await fetchWithTimeout(
+        `${apiUrl}/api/item/gemini_auto_item_desc`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `${token}`,
+          },
+          body: formData,
+        },
       );
 
-      // Auto-select a category if available
-      if (categoryList.length > 0) {
-        // Just picking the first one for demo purposes, or try to find one by name closest to prediction
-        setSelectedCategory(categoryList[0]);
-      }
+      const result = await response.json();
 
+      if (response?.ok && result?.success) {
+        const { title, content, category_id, price } = result.data;
+
+        if (title) setTitle(title);
+        if (content) setContent(content);
+        if (price) setPrice(price);
+
+        if (category_id) {
+          // Find the category object that matches the returned ID
+          const targetCategory = categoryList.find((c) => c.id === category_id);
+          if (targetCategory) {
+            setSelectedCategory(targetCategory);
+          }
+        }
+        alert("AI가 상품 정보를 생성했습니다! 내용을 확인해주세요.");
+      } else {
+        alert(`AI 자동완성 실패: ${result?.msg || "오류가 발생했습니다."}`);
+      }
+    } catch (error: any) {
+      console.error("AI Auto Complete Error:", error);
+      alert(`서버 통신 오류: ${error?.message}`);
+    } finally {
       setLoading(false);
-      alert("AI가 상품 정보를 생성했습니다! 내용을 확인해주세요.");
-    }, 2000);
+    }
   };
 
   // --- Render ---
