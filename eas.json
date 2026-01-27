@@ -12,6 +12,12 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_HONO_API_BASEURL": "https://hono-rabbbitmarket-2511.vercel.app",
+        "EXPO_PUBLIC_KAKAO_RESTAPI_KEY": "59498ffaa12716e02333174a9e4bac54",
+        "EXPO_PUBLIC_KAKAO_JAVASCRIPT_KEY": "150e98e3bd883753e02d811c6dfa864c",
+        "EXPO_PUBLIC_KAKAO_NATIVEAPP_KEY": "1101322b8b0555e2c3d8c3b4b23808ef"
       }
     },
     "production": {
