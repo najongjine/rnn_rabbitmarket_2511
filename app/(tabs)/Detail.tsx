@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import {
   FlatList,
   Image,
+  Modal,
   Platform,
   ScrollView,
   StatusBar,
@@ -20,7 +21,7 @@ import { fetchWithTimeout } from "../utils/api";
 
 export default function Detail() {
   const router = useRouter();
-  const { userInfo } = useAuth();
+  const { userInfo, token } = useAuth();
   const { width } = useWindowDimensions();
 
   // On Desktop/Web, width can be huge (e.g. 1920).
@@ -36,6 +37,7 @@ export default function Detail() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -89,6 +91,51 @@ export default function Detail() {
     const x = e.nativeEvent.contentOffset.x;
     const index = Math.round(x / width);
     setActiveIndex(index);
+  };
+
+  const handleDelete = () => {
+    setDeleteModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    setDeleteModalVisible(false); // Close modal
+
+    try {
+      setLoading(true);
+
+      const formData = new FormData();
+      formData.append("id", item_id.toString());
+
+      const response = await fetchWithTimeout(
+        `${apiUrl}/api/item/delete_item_by_id`,
+        {
+          method: "POST",
+          headers: {
+            // "Content-Type" should not be set manually for FormData; fetch handles it.
+            Authorization: `${token}`,
+          },
+          body: formData,
+        },
+      );
+
+      if (!response.ok) {
+        alert(`삭제 실패 : ${response?.statusText}`);
+        return;
+      }
+
+      const data = await response.json();
+      if (data?.success) {
+        // Successfully deleted
+        router.back();
+      } else {
+        alert(`삭제 실패 : ${data?.msg}`);
+        return;
+      }
+    } catch (err: any) {
+      alert(`삭제 실패 : ${err?.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
@@ -281,19 +328,27 @@ export default function Detail() {
           </View>
 
           {userInfo?.id === item.user_id ? (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.editButton]}
-              onPress={() => {
-                router.push({
-                  pathname: "/UploadItem",
-                  params: { itemId: item.item_id },
-                });
-              }}
-            >
-              <Text style={[styles.actionButtonText, styles.editButtonText]}>
-                게시글 수정
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.editButton]}
+                onPress={() => {
+                  router.push({
+                    pathname: "/UploadItem",
+                    params: { itemId: item.item_id },
+                  });
+                }}
+              >
+                <Text style={[styles.actionButtonText, styles.editButtonText]}>
+                  수정
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.deleteButton]}
+                onPress={handleDelete}
+              >
+                <Text style={styles.actionButtonText}>삭제</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <TouchableOpacity style={styles.actionButton}>
               <Text style={styles.actionButtonText}>채팅하기</Text>
@@ -301,6 +356,37 @@ export default function Detail() {
           )}
         </View>
       </View>
+
+      {/* Custom Delete Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={deleteModalVisible}
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>게시글 삭제</Text>
+            <Text style={styles.modalMessage}>
+              정말로 이 게시글을 삭제하시겠습니까?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setDeleteModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={confirmDelete}
+              >
+                <Text style={styles.confirmButtonText}>삭제</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -521,9 +607,70 @@ const styles = StyleSheet.create({
   editButtonText: {
     color: "#212529",
   },
+  deleteButton: {
+    backgroundColor: "#fa5252",
+  },
   actionButtonText: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#fff",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "80%",
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 24,
+    alignItems: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 12,
+    color: "#212529",
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: "#495057",
+    marginBottom: 24,
+    textAlign: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#f1f3f5",
+  },
+  confirmButton: {
+    backgroundColor: "#fa5252",
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#495057",
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "white",
   },
 });
