@@ -172,7 +172,6 @@ export default function HomeScreen() {
       >
         {/* 1. Header Section (Preserving Lottie) */}
         <View style={styles.headerContainer}>
-          <Text>{token}</Text>
           <LottieView
             source={require("../../assets/lottie/Bunny_Hop.json")}
             style={styles.headerLottie}
