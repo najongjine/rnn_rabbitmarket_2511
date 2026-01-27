@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "rnn_hospital_2511",
-    "slug": "rnn_hospital_2511",
+    "name": "rnn_rabbitmarket_2511",
+    "slug": "rnn_rabbitmarket_2511",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "rnnhospital2511",
+    "scheme": "rnnrabbitmarket2511",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -24,7 +24,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.najongjine.rnn_hospital_2511"
+      "package": "com.najongjine.rnn_rabbitmarket_2511"
     },
     "web": {
       "output": "static",
@@ -57,9 +57,7 @@
     },
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "37c2c3d9-e918-46f7-9a2a-952ecb577c08"
-      }
+      "eas": {}
     }
   }
 }
