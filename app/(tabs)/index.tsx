@@ -209,9 +209,41 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* 3. Categories & List Section Container */}
+        {/* 3. Categories (Sticky Index 2) */}
+        <View style={styles.categoryWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryScroll}
+          >
+            {categoryList.map((cat, index) => {
+              const isSelected = selectedCategory?.id === cat.id;
+              return (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => handleSelectCategory(cat)}
+                  style={[
+                    styles.categoryChip,
+                    isSelected && styles.categoryChipSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      isSelected && styles.categoryTextSelected,
+                    ]}
+                  >
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* 4. List Content (Index 3) */}
         <View style={styles.contentContainer}>
-          {/* Background Lottie (Preserved) */}
+          {/* Background Lottie */}
           <View
             style={[StyleSheet.absoluteFill, { zIndex: 0, opacity: 0.3 }]}
             pointerEvents="none"
@@ -223,38 +255,6 @@ export default function HomeScreen() {
               loop
               resizeMode="cover"
             />
-          </View>
-
-          {/* Category Chips */}
-          <View style={styles.categoryWrapper}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryScroll}
-            >
-              {categoryList.map((cat, index) => {
-                const isSelected = selectedCategory?.id === cat.id;
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => handleSelectCategory(cat)}
-                    style={[
-                      styles.categoryChip,
-                      isSelected && styles.categoryChipSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryText,
-                        isSelected && styles.categoryTextSelected,
-                      ]}
-                    >
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
           </View>
 
           {/* Item List (Cards) */}
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     backgroundColor: UI_COLORS.background,
   },
   scrollContent: {
-    paddingBottom: 80,
+    paddingBottom: 150,
   },
   // Header
   headerContainer: {
