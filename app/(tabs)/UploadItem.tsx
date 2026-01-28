@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -153,11 +153,19 @@ export default function UploadItem() {
     }
   }
 
+  const scrollViewRef = useRef<ScrollView>(null);
+
   useFocusEffect(
     useCallback(() => {
       const keyboardDidShowListener = Keyboard.addListener(
         "keyboardDidShow",
-        () => setKeyboardVisible(true),
+        () => {
+          setKeyboardVisible(true);
+          // Optional: slight delay to ensure layout update
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        },
       );
       const keyboardDidHideListener = Keyboard.addListener(
         "keyboardDidHide",
@@ -365,6 +373,8 @@ export default function UploadItem() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         nestedScrollEnabled={true}
         keyboardDismissMode="on-drag"
@@ -484,15 +494,19 @@ export default function UploadItem() {
           </View>
 
           {/* Content Input */}
-          <View style={styles.inputGroup}>
+          <View style={[styles.inputGroup, { marginBottom: 40 }]}>
             <Text style={styles.label}>설명</Text>
             <TextInput
-              style={styles.textArea}
+              style={[
+                styles.textArea,
+                { height: isKeyboardVisible ? 160 : 400 },
+              ]}
               placeholder={`상품 설명을 입력해주세요.\n(가품 및 판매금지품목은 게시가 제한될 수 있어요.)`}
               placeholderTextColor={UI_COLORS.textSub}
               value={content}
               multiline={true}
-              scrollEnabled={false} // Let the parent scroll view handle scrolling if needed, or set true based on content
+              scrollEnabled={true}
+              textAlignVertical="top"
               onChangeText={setContent}
             />
           </View>
@@ -500,21 +514,23 @@ export default function UploadItem() {
       </ScrollView>
 
       {/* Footer / Submit Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.submitButton, { opacity: loading ? 0.7 : 1 }]}
-          onPress={onUploadItem}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.submitButtonText}>
-              {itemId ? "수정 완료" : "작성 완료"}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      {!isKeyboardVisible && (
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.submitButton, { opacity: loading ? 0.7 : 1 }]}
+            onPress={onUploadItem}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.submitButtonText}>
+                {itemId ? "수정 완료" : "작성 완료"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Loading
         visible={loading}

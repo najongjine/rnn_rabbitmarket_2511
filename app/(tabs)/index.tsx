@@ -243,20 +243,6 @@ export default function HomeScreen() {
 
         {/* 4. List Content (Index 3) */}
         <View style={styles.contentContainer}>
-          {/* Background Lottie */}
-          <View
-            style={[StyleSheet.absoluteFill, { zIndex: 0, opacity: 0.3 }]}
-            pointerEvents="none"
-          >
-            <LottieView
-              source={require("../../assets/lottie/Angry_bird.json")}
-              style={{ width: "100%", height: "100%" }}
-              autoPlay
-              loop
-              resizeMode="cover"
-            />
-          </View>
-
           {/* Item List (Cards) */}
           <View style={styles.listContainer}>
             <Text style={styles.listHeaderTitle}>상품 목록</Text>
