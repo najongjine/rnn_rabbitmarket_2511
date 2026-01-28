@@ -1,3 +1,5 @@
+https://expo.dev/accounts/najongjine/projects/rnn_rabbitmarket_2511/builds/cd77a376-47f7-4aee-8773-286c6f682f7b
+
 npm uninstall zustand
 npm i @react-native-async-storage/async-storage
 npx expo install expo-image-picker
